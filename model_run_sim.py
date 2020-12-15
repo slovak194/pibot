@@ -58,7 +58,7 @@ f1.canvas.mpl_connect('key_press_event', kp.press)
 
 y0 = np.array([
     0.0,
-    0.01,
+    0.0,
     0.0,
     0.0
 ])
@@ -70,7 +70,7 @@ params = np.array([
     9.81,
 ])
 
-inp = np.array([0.0])
+inp = np.array([1.0])
 
 
 y = y0
