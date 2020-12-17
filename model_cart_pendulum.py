@@ -2,8 +2,6 @@ import sympy as sp
 
 # https://www.youtube.com/watch?v=5qJY-ZaKSic&t=320s&ab_channel=BriannoColler
 
-# state =
-
 parameters = sp.Matrix(sp.symbols("m_c, m_p, L, g"))
 # parameters = sp.MatrixSymbol('parameters', 4, 1)
 m_c, m_p, L, g = parameters
@@ -33,8 +31,8 @@ res = sp.solve(expr, (x_ddot, theta_ddot))
 state_sim_dot = sp.Array([x_dot, theta_dot, res[x_ddot], res[theta_ddot]])
 state_ctrl_dot = sp.Array([theta_dot, res[x_ddot], res[theta_ddot]])
 
-model_sim = sp.lambdify((state_sim, t_sym, parameters, inputs), state_sim_dot, 'numpy')
-model_ctrl = sp.lambdify((state_ctrl, t_sym, parameters, inputs), state_ctrl_dot, 'numpy')
+model_sim_lnp = sp.lambdify((state_sim, t_sym, parameters, inputs), state_sim_dot, 'numpy')
+model_ctrl_lnp = sp.lambdify((state_ctrl, t_sym, parameters, inputs), state_ctrl_dot, 'numpy')
 
 print(state_sim_dot.__repr__())
 print(state_ctrl_dot.__repr__())
@@ -73,6 +71,13 @@ B_ctrl = d_model_d_inputs_ctrl(y0[1:], sp.Array([0.0]), params, inputs)
 
 print(A_ctrl.__repr__())
 print(B_ctrl.__repr__())
+
+A_sim_lnp = sp.lambdify((parameters,), A_sim, 'numpy')
+B_sim_lnp = sp.lambdify((parameters,), B_sim, 'numpy')
+
+A_ctrl_lnp = sp.lambdify((parameters,), A_ctrl, 'numpy')
+B_ctrl_lnp = sp.lambdify((parameters,), B_ctrl, 'numpy')
+
 
 # np.linalg.eig(np.array(A_sim).astype(np.float64))
 # np.linalg.eig(np.array(A_ctrl).astype(np.float64))
