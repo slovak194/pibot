@@ -20,7 +20,7 @@ void data_send(void) {
   std::cout << "omg sent" << std::endl;
 }
 
-void data_rec(struct canfd_frame &rec_frame, boost::asio::posix::basic_stream_descriptor<> &stream) {
+void data_rec(struct canfd_frame &rec_frame, boost::asio::posix::stream_descriptor &stream) {
   std::cout << std::hex << rec_frame.can_id << "  ";
   for (int i = 0; i < rec_frame.len; i++) {
     std::cout << std::hex << int(rec_frame.data[i]) << " ";
@@ -59,7 +59,7 @@ int main(void) {
     }
   }
 
-  strcpy(ifr.ifr_name, "vcan1");
+  strcpy(ifr.ifr_name, "vcan0");
   ioctl(natsock, SIOCGIFINDEX, &ifr);
 
   addr.can_family = AF_CAN;
@@ -76,7 +76,7 @@ int main(void) {
   frame.data[1] = 0x23;
 
   boost::asio::io_service ios;
-  boost::asio::posix::basic_stream_descriptor<> stream(ios);
+  boost::asio::posix::stream_descriptor stream(ios);
   stream.assign(natsock);
 
   stream.async_write_some(boost::asio::buffer(&frame, sizeof(frame)),
