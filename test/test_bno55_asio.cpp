@@ -4,9 +4,6 @@
 
 #include <iostream>
 
-#include <thread>
-#include <chrono>
-
 #include <boost/asio.hpp>
 
 using namespace std::chrono_literals;
@@ -14,23 +11,24 @@ using namespace boost;
 
 #include "bno055_interface.h"
 
-class BnoAsio : public asio::io_service {
+class BnoService : public asio::io_service {
  private:
-  asio::deadline_timer m_timer;
+
+  BNO055 m_bno_interface;
 
   void schedule_receive() {
-    m_timer.expires_from_now(boost::posix_time::seconds(1));
-    m_timer.async_wait([this](auto ... vn){this->on_receive(vn...);});
+    post([this](){this->receive();});
   }
-  void on_receive(const boost::system::error_code &error) {
-    std::cout << "on_receive" << std::endl;
+  void receive(void) {
+    auto euler = m_bno_interface.GetEuler();
+    std::cout << "euler: " << euler.h << " " << euler.p << " " << euler.r << "\n";
+
     schedule_receive();
   }
 
  public:
-  BnoAsio() : m_timer(*this, boost::posix_time::seconds(1)) {
+  BnoService() {
     schedule_receive();
-    run();
   }
 
 };
@@ -38,23 +36,8 @@ class BnoAsio : public asio::io_service {
 
 int main(int argc, char * argv[]){
 
-//  BNO055 bno;
-//
-//  int i = 0;
-//
-//  auto t0 = std::chrono::steady_clock::now();
-//
-//  while (i < 100000) {
-//
-//    auto euler = bno.GetEuler();
-//    std::cout << "euler: " << euler.h << " " << euler.p << " " << euler.r << "\n";
-//
-//    std::this_thread::sleep_for(10ms);
-//    i++;
-//  }
-
-  BnoAsio bno;
-
+  BnoService bno;
+  bno.run();
 
   return 0;
 }

@@ -15,6 +15,7 @@ BNO055::BNO055() {
   if (gpioInitialise() < 0)
   {
     std::cout <<"Initialisation error of the GPIO \n Closing program..."<< std::endl;
+    exit(1);
   }
 
   m_i2c_handle=i2cOpen(m_i2c_channel, BNO055_I2C_ADDR1,0);
