@@ -21,8 +21,53 @@
 using namespace mjbots::moteus;
 
 
-void data_send(void) {
-  std::cout << "omg sent" << std::endl;
+void data_send(boost::asio::posix::stream_descriptor &stream, boost::asio::deadline_timer &timer) {
+  std::cout << "sending ..." << std::endl;
+
+  CanFrame f;
+  WriteCanFrame can_frame{&f};
+
+  PositionCommand pos;
+  PositionResolution res;
+
+  res.position = Resolution::kFloat;
+  res.velocity = Resolution::kFloat;
+  res.feedforward_torque = Resolution::kFloat;
+  res.kp_scale = Resolution::kIgnore;
+  res.kd_scale = Resolution::kIgnore;
+  res.maximum_torque = Resolution::kFloat;
+  res.stop_position = Resolution::kIgnore;
+  res.watchdog_timeout = Resolution::kIgnore;
+
+  pos.position = 0.0;
+  pos.velocity = 0.0;
+  pos.feedforward_torque = 0.0;
+  pos.kd_scale = 1.0;
+  pos.maximum_torque = 0.1;
+  pos.stop_position = 0.0;
+  pos.watchdog_timeout = 0.5;
+
+  EmitPositionCommand(&can_frame, pos, res);
+
+  struct canfd_frame frame;
+
+  for (int i = 0; i < f.size; i++) {
+    frame.data[i] = f.data[i];
+  }
+
+  frame.can_id = 0x00008002;
+  frame.len = f.size;
+  frame.flags = 1;
+
+  stream.async_write_some(boost::asio::buffer(&frame, sizeof(frame)),
+                          [](auto ... vn){std::cout << "sent" << std::endl;});
+
+  timer.expires_from_now(boost::posix_time::milliseconds(50));
+
+  timer.async_wait([&stream, &timer](auto ... vn){
+    data_send(stream, timer);
+  });
+
 }
 
 void data_rec(struct canfd_frame &rec_frame, boost::asio::posix::stream_descriptor &stream) {
@@ -41,7 +86,6 @@ void data_rec(struct canfd_frame &rec_frame, boost::asio::posix::stream_descript
 
 int main(void) {
   struct sockaddr_can addr;
-  struct canfd_frame frame;
   struct canfd_frame rec_frame;
   struct ifreq ifr;
 
@@ -64,7 +108,7 @@ int main(void) {
     }
   }
 
-  strcpy(ifr.ifr_name, "vcan1");
+  strcpy(ifr.ifr_name, "can0");
   ioctl(natsock, SIOCGIFINDEX, &ifr);
 
   addr.can_family = AF_CAN;
@@ -77,24 +121,15 @@ int main(void) {
   CanFrame f;
   WriteCanFrame can_frame{&f};
 
-  PositionCommand pos;
-  PositionResolution res;
+  EmitStopCommand(&can_frame);
 
-  pos.position = 0.4;
-  pos.velocity = 0.2;
-  pos.feedforward_torque = -1.0;
-  pos.kd_scale = 0.3;
-  pos.maximum_torque = 4.0;
-  pos.stop_position = 1.2;
-  pos.watchdog_timeout = 0.5;
-
-  EmitPositionCommand(&can_frame, pos, res);
+  struct canfd_frame frame;
 
   for (int i = 0; i < f.size; i++) {
     frame.data[i] = f.data[i];
   }
 
-  frame.can_id = 0x123;
+  frame.can_id = 0x00008002;
   frame.len = f.size;
   frame.flags = 1;
 
@@ -103,7 +138,14 @@ int main(void) {
   stream.assign(natsock);
 
   stream.async_write_some(boost::asio::buffer(&frame, sizeof(frame)),
-                          boost::bind(data_send));
+                          [](auto ... vn){std::cout << "sent" << std::endl;});
+
+  boost::asio::deadline_timer timer(ios, boost::posix_time::milliseconds(50));
+//
+//  timer.async_wait([&stream, &timer](auto ... vn){
+//    data_send(stream, timer);
+//  });
+
   stream.async_read_some(
       boost::asio::buffer(&rec_frame, sizeof(rec_frame)),
       boost::bind(data_rec, boost::ref(rec_frame), boost::ref(stream)));
