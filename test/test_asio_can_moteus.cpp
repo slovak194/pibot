@@ -141,10 +141,10 @@ int main(void) {
                           [](auto ... vn){std::cout << "sent" << std::endl;});
 
   boost::asio::deadline_timer timer(ios, boost::posix_time::milliseconds(50));
-//
-//  timer.async_wait([&stream, &timer](auto ... vn){
-//    data_send(stream, timer);
-//  });
+
+  timer.async_wait([&stream, &timer](auto ... vn){
+    data_send(stream, timer);
+  });
 
   stream.async_read_some(
       boost::asio::buffer(&rec_frame, sizeof(rec_frame)),
