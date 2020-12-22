@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <bitset>
+#include <memory>
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
@@ -15,139 +16,204 @@
 
 #include <boost/asio.hpp>
 #include <boost/bind.hpp>
+#include <boost/asio/signal_set.hpp>
+
 
 #include "moteus_protocol.h"
 
-using namespace mjbots::moteus;
+using namespace mjbots;
+using namespace std::chrono_literals;
 
+#include "bno055_interface.h"
 
-void data_send(boost::asio::posix::stream_descriptor &stream, boost::asio::deadline_timer &timer) {
-  std::cout << "sending ..." << std::endl;
+struct Motor {
+  std::uint32_t m_can_send_id;
+  std::uint32_t m_can_receive_id;
+  std::uint32_t m_id;
+  canfd_frame m_frame;
 
-  CanFrame f;
-  WriteCanFrame can_frame{&f};
-
-  PositionCommand pos;
-  PositionResolution res;
-
-  res.position = Resolution::kFloat;
-  res.velocity = Resolution::kFloat;
-  res.feedforward_torque = Resolution::kFloat;
-  res.kp_scale = Resolution::kIgnore;
-  res.kd_scale = Resolution::kIgnore;
-  res.maximum_torque = Resolution::kFloat;
-  res.stop_position = Resolution::kIgnore;
-  res.watchdog_timeout = Resolution::kIgnore;
-
-  pos.position = 0.0;
-  pos.velocity = 0.0;
-  pos.feedforward_torque = 0.0;
-  pos.kd_scale = 1.0;
-  pos.maximum_torque = 0.1;
-  pos.stop_position = 0.0;
-  pos.watchdog_timeout = 0.5;
-
-  EmitPositionCommand(&can_frame, pos, res);
-
-  struct canfd_frame frame;
-
-  for (int i = 0; i < f.size; i++) {
-    frame.data[i] = f.data[i];
+  explicit Motor(std::uint32_t id = 1U)
+      : m_id(id), m_can_send_id((1U << 15U) + id), m_can_receive_id(0x100 + id) {
+    m_frame.can_id = m_can_send_id;
   }
 
-  frame.can_id = 0x00008002;
-  frame.len = f.size;
-  frame.flags = 1;
+};
 
-  stream.async_write_some(boost::asio::buffer(&frame, sizeof(frame)),
-                          [](auto ... vn){std::cout << "sent" << std::endl;});
+class Vehicle : public boost::asio::io_service {
+ private:
 
-  timer.expires_from_now(boost::posix_time::milliseconds(50));
+  BNO055 m_bno_interface;
 
-  timer.async_wait([&stream, &timer](auto ... vn){
-    data_send(stream, timer);
-  });
-
-}
-
-void data_rec(struct canfd_frame &rec_frame, boost::asio::posix::stream_descriptor &stream) {
-  std::cout << std::hex << rec_frame.can_id << "  ";
-  for (int i = 0; i < rec_frame.len; i++) {
-    std::cout << std::hex << int(rec_frame.data[i]) << " ";
-  }
-
-  std::cout << "flags: |" << std::bitset<8>(rec_frame.flags) << "|" << static_cast<unsigned int>(rec_frame.flags) << "|";
-
-  std::cout << std::dec << std::endl;
-  stream.async_read_some(
-      boost::asio::buffer(&rec_frame, sizeof(rec_frame)),
-      boost::bind(data_rec, boost::ref(rec_frame), boost::ref(stream)));
-}
-
-int main(void) {
-  struct sockaddr_can addr;
-  struct canfd_frame rec_frame;
+  struct sockaddr_can m_can_address;
   struct ifreq ifr;
+  int m_native_socket;
+  boost::asio::posix::stream_descriptor m_stream;
+  boost::asio::signal_set m_signals;
+  boost::asio::deadline_timer m_d_timer;
 
-  int natsock = socket(PF_CAN, SOCK_RAW, CAN_RAW);
+  std::vector<Motor> m_motors = {Motor(1), Motor(2)};
 
-  // Enable reception of CAN FD frames
-  {
-    int enable = 1;
+  std::atomic_bool m_running = true;
 
-    auto rc = ::setsockopt(
-        natsock,
-        SOL_CAN_RAW,
-        CAN_RAW_FD_FRAMES,
-        &enable,
-        sizeof(enable)
-    );
-    if (-1 == rc) {
-      std::perror("setsockopt CAN FD");
-      std::exit(1);
+  std::vector<float> GetTorque(double pitch) {
+    return {0.03, 0.0};
+  }
+
+  void SetSigintHandler() {
+    m_signals.async_wait([this](const boost::system::error_code& error , int signal_number){
+      this->m_running = false;
+      this->SetStopAll();
+      this->SetStopAll();
+      this->SetStopAll();
+      this->post([](auto ... vn){
+        std::cout << "Exiting ..." << std::endl;
+        exit(0);
+      });
+    });
+
+  }
+
+  void SetStopAll() {
+
+    for (auto& m : m_motors) {
+
+      moteus::CanFrame f;
+      moteus::WriteCanFrame can_frame{&f};
+
+      EmitStopCommand(&can_frame);
+
+      for (int i = 0; i < 64; i++) {
+        m.m_frame.data[i] = f.data[i];
+      }
+
+      m.m_frame.len = f.size;
+      m.m_frame.flags = 1;
+
+      m_stream.async_write_some(boost::asio::buffer(&m.m_frame, sizeof(m.m_frame)),
+                                [](auto ... vn) { std::cout << "stop sent" << std::endl; });
+
+    }
+
+  }
+
+  void ScheduleBnoReceive() {
+    if (this->m_running) {
+      post([this]() { this->BnoReceive(); });
     }
   }
 
-  strcpy(ifr.ifr_name, "can0");
-  ioctl(natsock, SIOCGIFINDEX, &ifr);
-
-  addr.can_family = AF_CAN;
-  addr.can_ifindex = ifr.ifr_ifindex;
-  if (bind(natsock, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
-    perror("Error in socket bind");
-    return -2;
+  void ScheduleBnoReceiveTimed() {
+    if (this->m_running) {
+      m_d_timer.expires_from_now(boost::posix_time::milliseconds(50));
+      m_d_timer.async_wait([this](auto ...vn) { this->BnoReceive(); });
+    }
   }
 
-  CanFrame f;
-  WriteCanFrame can_frame{&f};
+  void BnoReceive() {
+    auto euler = m_bno_interface.GetEuler();
+    std::cout << "euler: " << euler.h << " " << euler.p << " " << euler.r << "\n";
 
-  EmitStopCommand(&can_frame);
 
-  struct canfd_frame frame;
+    auto torque = GetTorque(euler.p);
 
-  for (int i = 0; i < f.size; i++) {
-    frame.data[i] = f.data[i];
+    for (int n = 0; n < m_motors.size(); n++) {
+      moteus::CanFrame f;
+      moteus::WriteCanFrame can_frame{&f};
+
+      moteus::PositionCommand pos;
+      moteus::PositionResolution res;
+
+      res.position = moteus::Resolution::kIgnore;
+      res.velocity = moteus::Resolution::kIgnore;
+      res.feedforward_torque = moteus::Resolution::kFloat;
+      res.kp_scale = moteus::Resolution::kFloat;
+      res.kd_scale = moteus::Resolution::kFloat;
+      res.maximum_torque = moteus::Resolution::kIgnore;
+      res.stop_position = moteus::Resolution::kIgnore;
+      res.watchdog_timeout = moteus::Resolution::kIgnore;
+
+//      pos.position = 0.0;
+//      pos.velocity = 0.0;
+      pos.feedforward_torque = torque[n];
+      pos.kp_scale = 0.0;
+      pos.kd_scale = 0.0;
+//      pos.maximum_torque = 0.1;
+//      pos.stop_position = 0.0;
+//      pos.watchdog_timeout = 0.5;
+
+      EmitPositionCommand(&can_frame, pos, res);
+
+      for (int i = 0; i < 64; i++) {
+        m_motors[n].m_frame.data[i] = f.data[i];
+      }
+
+      m_motors[n].m_frame.len = f.size;
+      m_motors[n].m_frame.flags = 1;
+
+      if (std::abs(torque[n]) < 1.0) {
+        m_stream.async_write_some(boost::asio::buffer(&m_motors[n].m_frame, sizeof(m_motors[n].m_frame)),
+                                  [](auto ... vn) { std::cout << "motor command has been sent" << std::endl; });
+      }
+
+    }
+
+//    ScheduleBnoReceive();
+
+    ScheduleBnoReceiveTimed();
+
   }
 
-  frame.can_id = 0x00008002;
-  frame.len = f.size;
-  frame.flags = 1;
+  void SetupCan() {
+    m_native_socket = socket(PF_CAN, SOCK_RAW, CAN_RAW);
 
-  boost::asio::io_service ios;
-  boost::asio::posix::stream_descriptor stream(ios);
-  stream.assign(natsock);
+    // Enable reception of CAN FD frames
+    {
+      int enable = 1;
 
-  stream.async_write_some(boost::asio::buffer(&frame, sizeof(frame)),
-                          [](auto ... vn){std::cout << "sent" << std::endl;});
+      auto rc = ::setsockopt(
+          m_native_socket,
+          SOL_CAN_RAW,
+          CAN_RAW_FD_FRAMES,
+          &enable,
+          sizeof(enable)
+      );
+      if (-1 == rc) {
+        std::perror("setsockopt CAN FD");
+        std::exit(1);
+      }
+    }
 
-  boost::asio::deadline_timer timer(ios, boost::posix_time::milliseconds(50));
+    strcpy(ifr.ifr_name, "can0");
+    ioctl(m_native_socket, SIOCGIFINDEX, &ifr);
 
-  timer.async_wait([&stream, &timer](auto ... vn){
-    data_send(stream, timer);
-  });
+    m_can_address.can_family = AF_CAN;
+    m_can_address.can_ifindex = ifr.ifr_ifindex;
+    if (bind(m_native_socket, (struct sockaddr *) &m_can_address, sizeof(m_can_address)) < 0) {
+      perror("Error in socket bind");
+      exit(1);
+    }
 
-  stream.async_read_some(
-      boost::asio::buffer(&rec_frame, sizeof(rec_frame)),
-      boost::bind(data_rec, boost::ref(rec_frame), boost::ref(stream)));
-  ios.run();
+    m_stream.assign(m_native_socket);
+
+  }
+
+ public:
+  Vehicle()
+  : m_stream(*this), m_signals(*this, SIGINT), m_d_timer(*this, boost::posix_time::milliseconds(50))
+  {
+    SetupCan();
+    SetSigintHandler();
+    SetStopAll();
+    ScheduleBnoReceiveTimed();
+  }
+
+};
+
+int main(int argc, char * argv[]) {
+
+  Vehicle veh;
+  veh.run();
+
+  return 0;
+
 }
