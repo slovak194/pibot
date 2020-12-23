@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <bitset>
 #include <memory>
+#include <chrono>
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
@@ -18,13 +19,17 @@
 #include <boost/bind.hpp>
 #include <boost/asio/signal_set.hpp>
 
-
 #include "moteus_protocol.h"
 
 using namespace mjbots;
 using namespace std::chrono_literals;
 
 #include "bno055_interface.h"
+
+template<typename T>
+int sgn(T val) {
+  return (T(0) < val) - (val < T(0));
+}
 
 struct Motor {
   std::uint32_t m_can_send_id;
@@ -55,17 +60,25 @@ class Vehicle : public boost::asio::io_service {
 
   std::atomic_bool m_running = true;
 
-  std::vector<float> GetTorque(double pitch) {
-    return {0.03, 0.0};
+  std::chrono::time_point<std::chrono::steady_clock> m_time_prev[2];
+
+  static std::vector<float> GetTorque(double pitch, double dpitch) {
+
+    double k_p = 0.3;
+    double k_d = 0.03;
+
+    auto t = static_cast<float>(pitch * k_p + dpitch * k_d);
+
+    return {t, -t};
   }
 
   void SetSigintHandler() {
-    m_signals.async_wait([this](const boost::system::error_code& error , int signal_number){
+    m_signals.async_wait([this](const boost::system::error_code &error, int signal_number) {
       this->m_running = false;
       this->SetStopAll();
       this->SetStopAll();
       this->SetStopAll();
-      this->post([](auto ... vn){
+      this->post([](auto ... vn) {
         std::cout << "Exiting ..." << std::endl;
         exit(0);
       });
@@ -75,7 +88,7 @@ class Vehicle : public boost::asio::io_service {
 
   void SetStopAll() {
 
-    for (auto& m : m_motors) {
+    for (auto &m : m_motors) {
 
       moteus::CanFrame f;
       moteus::WriteCanFrame can_frame{&f};
@@ -104,19 +117,57 @@ class Vehicle : public boost::asio::io_service {
 
   void ScheduleBnoReceiveTimed() {
     if (this->m_running) {
-      m_d_timer.expires_from_now(boost::posix_time::milliseconds(50));
+      m_d_timer.expires_from_now(boost::posix_time::milliseconds(4));
       m_d_timer.async_wait([this](auto ...vn) { this->BnoReceive(); });
     }
   }
 
   void BnoReceive() {
+
+//    auto t0 = std::chrono::steady_clock::now();
     auto euler = m_bno_interface.GetEuler();
-    std::cout << "euler: " << euler.h << " " << euler.p << " " << euler.r << "\n";
+//    auto t1 = std::chrono::steady_clock::now();
+    auto gyro_y = m_bno_interface.GetGyroY();
+//    auto t2 = std::chrono::steady_clock::now();
 
 
-    auto torque = GetTorque(euler.p);
+//    std::cout << "bno euler: " << std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0).count() << "\n";
+//    std::cout << "bno gyro: " << std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count() << "\n";
+
+//    if (std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t0).count() > 10) {
+//      exit(0);
+//    }
+
+    auto torque = GetTorque(euler.r * M_PI / 180.0, gyro_y);
+
+
+//    std::cout
+//    << "euler.p: " << euler.p << "\t"
+//    << "euler.h: " << euler.h << "\t"
+//    << "euler.r: " << euler.r << "\n";
+
+//    std::cout
+//    << "gyro.x: " << gyro.x << "\t"
+//    << "gyro.y: " << gyro.y << "\t"
+//    << "gyro.z: " << gyro.z << "\n";
+
+//    std::cout
+//    << "torque[0]: " << torque[0] << "\n";
+
+
 
     for (int n = 0; n < m_motors.size(); n++) {
+
+
+
+      if (std::abs(torque[n]) > 1.5) {
+        torque[n] = 1.5 * sgn(torque[n]);
+      }
+
+//      std::cout << torque[n] << std::endl;
+//      torque[n] = torque[n] * 0;
+
+
       moteus::CanFrame f;
       moteus::WriteCanFrame can_frame{&f};
 
@@ -130,7 +181,7 @@ class Vehicle : public boost::asio::io_service {
       res.kd_scale = moteus::Resolution::kFloat;
       res.maximum_torque = moteus::Resolution::kIgnore;
       res.stop_position = moteus::Resolution::kIgnore;
-      res.watchdog_timeout = moteus::Resolution::kIgnore;
+      res.watchdog_timeout = moteus::Resolution::kFloat;
 
 //      pos.position = 0.0;
 //      pos.velocity = 0.0;
@@ -139,7 +190,7 @@ class Vehicle : public boost::asio::io_service {
       pos.kd_scale = 0.0;
 //      pos.maximum_torque = 0.1;
 //      pos.stop_position = 0.0;
-//      pos.watchdog_timeout = 0.5;
+      pos.watchdog_timeout = 0.1;
 
       EmitPositionCommand(&can_frame, pos, res);
 
@@ -150,15 +201,20 @@ class Vehicle : public boost::asio::io_service {
       m_motors[n].m_frame.len = f.size;
       m_motors[n].m_frame.flags = 1;
 
-      if (std::abs(torque[n]) < 1.0) {
-        m_stream.async_write_some(boost::asio::buffer(&m_motors[n].m_frame, sizeof(m_motors[n].m_frame)),
-                                  [](auto ... vn) { std::cout << "motor command has been sent" << std::endl; });
-      }
+      m_stream.async_write_some(boost::asio::buffer(&m_motors[n].m_frame, sizeof(m_motors[n].m_frame)),
+                                [this, n](auto ... vn) {
+//                                  auto time_now = std::chrono::steady_clock::now();
+//                                  auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(time_now - this->m_time_prev[n - 1]).count();
+//                                  std::cout << duration << "\n";
+//                                  this->m_time_prev[n - 1] = time_now;
+//                                  if (duration > 20) {
+//                                    exit(0);
+//                                  }
+                                });
 
     }
 
 //    ScheduleBnoReceive();
-
     ScheduleBnoReceiveTimed();
 
   }
@@ -199,17 +255,20 @@ class Vehicle : public boost::asio::io_service {
 
  public:
   Vehicle()
-  : m_stream(*this), m_signals(*this, SIGINT), m_d_timer(*this, boost::posix_time::milliseconds(50))
-  {
+      : m_stream(*this), m_signals(*this, SIGINT), m_d_timer(*this, boost::posix_time::seconds(50)) {
+    auto now = std::chrono::steady_clock::now();
+    m_time_prev[0] = now;
+    m_time_prev[1] = now;
     SetupCan();
     SetSigintHandler();
     SetStopAll();
+//    ScheduleBnoReceive();
     ScheduleBnoReceiveTimed();
   }
 
 };
 
-int main(int argc, char * argv[]) {
+int main(int argc, char *argv[]) {
 
   Vehicle veh;
   veh.run();

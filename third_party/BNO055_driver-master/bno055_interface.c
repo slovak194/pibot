@@ -5,6 +5,8 @@
 #include <thread>
 #include <chrono>
 
+#include <math.h>
+
 using namespace std::chrono_literals;
 
 int16_t BNO055::m_i2c_handle = -1;
@@ -43,7 +45,8 @@ BNO055::BNO055() {
    * 0x0B - BNO055_OPERATION_MODE_NDOF_FMC_OFF
    * 0x0C - BNO055_OPERATION_MODE_NDOF
    * based on the user need configure the operation mode*/
-  comres += bno055_set_operation_mode(BNO055_OPERATION_MODE_NDOF);
+  comres += bno055_set_operation_mode(BNO055_OPERATION_MODE_IMUPLUS);
+//  comres += bno055_set_operation_mode(BNO055_OPERATION_MODE_NDOF);
 
 }
 
@@ -67,6 +70,25 @@ bno055_euler_double_t BNO055::GetEuler() {
   struct bno055_euler_double_t d_euler_hpr;
   auto result = bno055_convert_double_euler_hpr_deg(&d_euler_hpr);
   return d_euler_hpr;
+}
+
+bno055_gyro_double_t BNO055::GetGyro() {
+
+  struct bno055_gyro_double_t d_gyro_xyz_rps;
+  auto result = bno055_convert_double_gyro_xyz_rps(&d_gyro_xyz_rps);
+  return d_gyro_xyz_rps;
+}
+
+double BNO055::GetGyroY() {
+  double d_gyro_y;
+//  auto result = bno055_convert_double_gyro_y_rps(&d_gyro_y);  // This causes unintentional mode switching.
+  auto result = bno055_convert_double_gyro_y_dps(&d_gyro_y);
+  if (result == BNO055_SUCCESS) {
+    return d_gyro_y * M_PI / 180.0;
+  } else {
+    return 0.0;
+  }
+
 }
 
 
@@ -105,6 +127,8 @@ s8 BNO055::BNO055_I2C_bus_read(u8 dev_addr, u8 reg_addr, u8 *reg_data, u8 cnt)
 
 void BNO055::BNO055_delay_msek(u32 msek)
 {
+
+//  printf("%d\n", msek);
 
   std::this_thread::sleep_for(std::chrono::milliseconds(msek));
 //    gpioSleep(PI_TIME_RELATIVE, 0, static_cast<int>(1000*msek));

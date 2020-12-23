@@ -12,6 +12,8 @@ class BNO055 {
   ~BNO055();
 
   bno055_euler_double_t GetEuler();
+  bno055_gyro_double_t GetGyro();
+  double GetGyroY();
 
  private:
   bno055_t m_sensor_parameters;
