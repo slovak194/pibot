@@ -99,6 +99,8 @@ f, axs = plot_df_entry(None, [
     [],
     [],
     [],
+    [],
+    [],
 ], wrt_iloc=True, fig=1, tight=False)
 
 n = -1
@@ -116,5 +118,17 @@ xl = ax.legend()
 n += 1
 ax = axs[n]
 ax.plot(dump.torque0, '.-', label="torque0")
+xl = ax.legend()
+
+n += 1
+ax = axs[n]
+ax.plot(dump.velocity0, '.-', label="velocity0")
+ax.plot(dump.velocity1, '.-', label="velocity1")
+xl = ax.legend()
+
+n += 1
+ax = axs[n]
+ax.plot(dump.position0, '.-', label="position0")
+ax.plot(dump.position1, '.-', label="position1")
 xl = ax.legend()
 
