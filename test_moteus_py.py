@@ -23,7 +23,7 @@ async def main():
     i = 0
     while running:
         i = i + 1
-        await c.set_position(position=None, velocity=None, feedforward_torque=0.1, watchdog_timeout=0.5)
+        # await c.set_position(position=None, velocity=None, feedforward_torque=0.1, watchdog_timeout=0.5)
 
         if not (i % 10):
             print(await c.query())

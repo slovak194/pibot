@@ -69,6 +69,13 @@ BNO055::~BNO055() {
 bno055_euler_double_t BNO055::GetEuler() {
   struct bno055_euler_double_t d_euler_hpr;
   auto result = bno055_convert_double_euler_hpr_deg(&d_euler_hpr);
+
+  if (result != BNO055_SUCCESS) {
+    d_euler_hpr.r = 0.0;
+    d_euler_hpr.p = 0.0;
+    d_euler_hpr.h = 0.0;
+  }
+
   return d_euler_hpr;
 }
 

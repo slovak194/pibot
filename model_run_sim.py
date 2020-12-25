@@ -71,6 +71,18 @@ def rk4step(f, y_i, h, args=()):
 
 # %%
 
+wheel_r = 0.035
+
+
+
+
+
+#
+# double k_p = 0.3;
+# double k_d = 0.03;
+
+
+
 y0 = np.array([
     0.0,
     30*np.pi/180,
@@ -78,14 +90,21 @@ y0 = np.array([
     0.0
 ])
 
+# m_c, m_p, L, g
+
 params = np.array([
-    0.3,
-    1.0,
-    1.0,
+    0.390,
+    0.614,
+    0.154,
     9.81,
 ])
 
-Qx1 = np.diag([1, 50, 1])
+#     [    theta],
+#     [    x_dot],
+#     [theta_dot]])
+
+
+Qx1 = np.diag([1, 0.1, 1])
 Qu1a = np.diag([1])
 K, X, E = ctl.lqr(A_ctrl_lnp(params), B_ctrl_lnp(params), Qx1, Qu1a)
 

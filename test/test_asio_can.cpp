@@ -59,7 +59,7 @@ int main(void) {
     }
   }
 
-  strcpy(ifr.ifr_name, "vcan0");
+  strcpy(ifr.ifr_name, "can0");
   ioctl(natsock, SIOCGIFINDEX, &ifr);
 
   addr.can_family = AF_CAN;
