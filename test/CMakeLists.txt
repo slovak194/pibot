@@ -17,6 +17,6 @@ add_executable(test_asio_can test_asio_can.cpp)
 
 add_executable(test_bno55_asio test_bno55_asio.cpp)
 
-add_executable(test_asio_can_moteus test_asio_can_moteus.cpp)
-
 add_executable(test_moteus_query test_moteus_query.cpp)
+
+add_executable(test_robot test_robot.cpp)

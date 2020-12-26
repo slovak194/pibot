@@ -108,11 +108,17 @@ void BNO055::Update() {
   auto theta = euler.r; // TODO, OLSLO, check this!!!
   auto theta_dot = GetGyroY();
 
+//  double omega;
+//  auto result = bno055_convert_double_gyro_z_dps(&omega);
+
+//  m_state_raw.omega = omega;
+
   if (m_state.timestamp == 0U) {
-    if (std::abs(theta_dot) < 20.0 && std::abs(theta) < 0.1) {
+    if (std::abs(theta_dot) < 20.0 && std::abs(theta) < 0.1/* && std::abs(omega) < 0.1*/) {
       m_state.timestamp = now;
       m_state.theta = theta;
       m_state.theta_dot = theta_dot;
+//      m_state.omega = omega;
     }
   } else {
 
@@ -120,10 +126,11 @@ void BNO055::Update() {
 
     double pred_theta = m_state.theta + m_state.theta_dot * ts;
 
-    if (std::abs(theta - pred_theta) < M_PI/48 && std::abs(theta_dot) < 20.0) {
+    if (std::abs(theta - pred_theta) < M_PI/48 && std::abs(theta_dot) < 20.0/* && std::abs(omega) < 0.1*/) {
       m_state.timestamp = now;
       m_state.theta = theta;
       m_state.theta_dot = theta_dot;
+//      m_state.omega = omega;
     }
   }
 

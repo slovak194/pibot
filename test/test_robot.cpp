@@ -1,9 +1,6 @@
-#include <stdio.h>
 #include <memory>
 #include <chrono>
-#include <stdlib.h>
 #include <unistd.h>
-#include <string.h>
 #include <iostream>
 #include <fstream>
 
@@ -22,139 +19,9 @@
 
 #include <Json2Eigen.hpp>
 
-#include "moteus_protocol.h"
-
 #include "bno055_interface.h"
+#include "motor.h"
 
-using namespace mjbots;
-using namespace std::chrono_literals;
-
-constexpr std::uint32_t EXT_ID_ENABLE = 1U << 31U;
-constexpr std::uint32_t FORCE_SERVO_RESPONCE = 1U << 15U;
-
-struct Motor {
-  std::uint32_t m_can_send_resp_id;
-  std::uint32_t m_can_send_no_resp_id;
-  std::uint32_t m_can_receive_id;
-  std::uint32_t m_id;
-  canfd_frame m_receive_frame;
-
-  moteus::QueryResult m_state;
-
-  explicit Motor(std::uint32_t id = 1U)
-      : m_id(id), m_can_send_resp_id(EXT_ID_ENABLE | FORCE_SERVO_RESPONCE | id), m_can_send_no_resp_id(EXT_ID_ENABLE | id), m_can_receive_id(0x100 * id) {
-  }
-
-  void dump() {
-    std::cout << std::hex << m_receive_frame.can_id << std::dec
-    << /*" position: " << result.position <<*/ " velocity: " << m_state.velocity << std::endl;
-  }
-
-  [[nodiscard]] auto BuildTorqueBuffer(double t_Nm) const {
-
-    if (std::abs(t_Nm) > 1.0) {
-      t_Nm = 0.0;
-    }
-
-    moteus::CanFrame f;
-    moteus::WriteCanFrame can_frame{&f};
-
-    moteus::PositionCommand pos;
-    moteus::PositionResolution res;
-
-    res.position = moteus::Resolution::kIgnore;
-    res.velocity = moteus::Resolution::kIgnore;
-    res.feedforward_torque = moteus::Resolution::kFloat;
-    res.kp_scale = moteus::Resolution::kFloat;
-    res.kd_scale = moteus::Resolution::kFloat;
-    res.maximum_torque = moteus::Resolution::kIgnore;
-    res.stop_position = moteus::Resolution::kIgnore;
-    res.watchdog_timeout = moteus::Resolution::kFloat;
-
-    pos.feedforward_torque = t_Nm;
-    pos.kp_scale = 0.0;
-    pos.kd_scale = 0.0;
-    pos.watchdog_timeout = 0.1;
-
-    EmitPositionCommand(&can_frame, pos, res);
-
-    auto frame_sh_ptr = std::make_shared<canfd_frame>();
-
-    for (int i = 0; i < 64; i++) {
-      frame_sh_ptr->data[i] = f.data[i];
-    }
-
-    frame_sh_ptr->can_id = m_can_send_no_resp_id;
-    frame_sh_ptr->len = f.size;
-    frame_sh_ptr->flags = 1;
-
-    return std::make_pair(boost::asio::buffer(&(*frame_sh_ptr), sizeof(*frame_sh_ptr)), [frame_sh_ptr](auto ...vn) {});
-  }
-
-  [[nodiscard]] auto BuildQueryBuffer() const {
-
-    moteus::CanFrame f;
-    moteus::WriteCanFrame can_frame{&f};
-
-    moteus::QueryCommand cmd;
-
-    cmd.mode = moteus::Resolution::kInt16;
-    cmd.position = moteus::Resolution::kFloat;
-    cmd.velocity = moteus::Resolution::kFloat;
-    cmd.torque = moteus::Resolution::kFloat;
-    cmd.q_current = moteus::Resolution::kIgnore;
-    cmd.d_current = moteus::Resolution::kIgnore;
-    cmd.rezero_state = moteus::Resolution::kIgnore;
-    cmd.voltage = moteus::Resolution::kInt8;
-    cmd.temperature = moteus::Resolution::kInt8;
-    cmd.fault = moteus::Resolution::kInt8;
-
-    moteus::EmitQueryCommand(&can_frame, cmd);
-
-    auto frame_sh_ptr = std::make_shared<canfd_frame>();
-
-    for (int i = 0; i < 64; i++) {
-      frame_sh_ptr->data[i] = f.data[i];
-    }
-
-    frame_sh_ptr->can_id = m_can_send_resp_id;
-    frame_sh_ptr->len = f.size;
-    frame_sh_ptr->flags = 1;
-
-    return std::make_pair(boost::asio::buffer(&(*frame_sh_ptr), sizeof(*frame_sh_ptr)), [frame_sh_ptr](auto ...vn) {});
-  }
-
-  [[nodiscard]] auto BuildStopBuffer() const {
-    moteus::CanFrame f;
-    moteus::WriteCanFrame can_frame{&f};
-
-    EmitStopCommand(&can_frame);
-
-    auto frame_sh_ptr = std::make_shared<canfd_frame>();
-
-    for (int i = 0; i < 64; i++) {
-      frame_sh_ptr->data[i] = f.data[i];
-    }
-
-    frame_sh_ptr->can_id = m_can_send_resp_id;
-    frame_sh_ptr->len = f.size;
-    frame_sh_ptr->flags = 1;
-
-    return std::make_pair(
-        boost::asio::buffer(&(*frame_sh_ptr), sizeof(*frame_sh_ptr)),
-        [frame_sh_ptr](auto ...vn) { std::cout << "stop sent to " << std::hex << frame_sh_ptr->can_id << std::dec << std::endl; }
-    );
-
-  }
-
-  void MaybeReceive(canfd_frame frame) {
-    if (frame.can_id == m_can_receive_id) {
-      m_receive_frame = frame;
-      m_state = moteus::ParseQueryResult(m_receive_frame.data, m_receive_frame.len);
-    }
-  }
-
-};
 
 class Vehicle : public boost::asio::io_service {
  private:
@@ -238,15 +105,27 @@ class Vehicle : public boost::asio::io_service {
 
     json["theta"] = m_bno_interface.m_state.theta;
     json["theta_dot"] = m_bno_interface.m_state.theta_dot;
+    json["omega"] = m_bno_interface.m_state.omega;
 
     json["raw_theta"] = m_bno_interface.m_state_raw.theta;
     json["raw_theta_dot"] = m_bno_interface.m_state_raw.theta_dot;
+    json["raw_omega"] = m_bno_interface.m_state_raw.omega;
 
     json["torque0"] = torque[0];
     json["torque1"] = torque[1];
 
-    json["velocity0"] = m_motors[0].m_state.velocity;
-    json["velocity1"] = m_motors[1].m_state.velocity;
+    auto velocity_l = 2 * M_PI * 0.07 * m_motors[0].m_state.velocity;
+    auto velocity_r = 2 * M_PI * 0.07 * m_motors[1].m_state.velocity * -1;
+
+    double wheel_base = 0.183;
+
+    auto omega = (velocity_r - velocity_l) / wheel_base;
+
+    json["omega"] = omega;
+    json["x_dot"] = (velocity_r - velocity_l) / 2.0;
+
+    json["velocity_l"] = velocity_l;
+    json["velocity_r"] = velocity_r;
 
     json["position0"] = m_motors[0].m_state.position;
     json["position1"] = m_motors[1].m_state.position;

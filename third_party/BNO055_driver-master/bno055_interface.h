@@ -17,6 +17,7 @@ class BNO055 {
     std::uint64_t timestamp = 0U;
     double theta = 0.0;
     double theta_dot = 0.0;
+    double omega = 0.0;
   };
 
   state_t m_state = {0};

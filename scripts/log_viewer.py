@@ -125,17 +125,19 @@ xl = ax.legend()
 
 n += 1
 ax = axs[n]
-ax.plot(dump.timestamp, dump.velocity0, '.-', label="velocity0")
-ax.plot(dump.timestamp, dump.velocity1, '.-', label="velocity1")
+# ax.plot(dump.timestamp, dump.velocity0, '.-', label="velocity0")
+# ax.plot(dump.timestamp, dump.velocity1, '.-', label="velocity1")
+ax.plot(dump.timestamp, dump.omega, '.-', label="omega")
 xl = ax.legend()
 
 n += 1
 ax = axs[n]
-ax.plot(dump.timestamp, dump.position0, '.-', label="position0")
-ax.plot(dump.timestamp, dump.position1, '.-', label="position1")
+ax.plot(dump.timestamp, dump.x_dot, '.-', label="x_dot")
+# ax.plot(dump.timestamp, dump.position0, '.-', label="position0")
+# ax.plot(dump.timestamp, dump.position1, '.-', label="position1")
 xl = ax.legend()
 
 
 # %%
 
-plt.plot(np.diff(dump.timestamp))
+plt.plot(np.diff(dump.timestamp), '.')
