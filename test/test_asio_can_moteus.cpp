@@ -37,7 +37,6 @@ struct Motor {
   std::uint32_t m_can_send_no_resp_id;
   std::uint32_t m_can_receive_id;
   std::uint32_t m_id;
-  canfd_frame m_send_frame;
   canfd_frame m_receive_frame;
 
   moteus::QueryResult m_state;
@@ -47,10 +46,8 @@ struct Motor {
   }
 
   void dump() {
-    const auto result = moteus::ParseQueryResult(m_receive_frame.data, m_receive_frame.len);
-
     std::cout << std::hex << m_receive_frame.can_id << std::dec
-              << /*" position: " << result.position <<*/ " velocity: " << result.velocity << std::endl;
+    << /*" position: " << result.position <<*/ " velocity: " << m_state.velocity << std::endl;
   }
 
   [[nodiscard]] auto BuildTorqueBuffer(double t_Nm) const {
@@ -145,7 +142,7 @@ struct Motor {
 
     return std::make_pair(
         boost::asio::buffer(&(*frame_sh_ptr), sizeof(*frame_sh_ptr)),
-        [frame_sh_ptr](auto ...vn) { std::cout << "stop sent" << std::endl; }
+        [frame_sh_ptr](auto ...vn) { std::cout << "stop sent to " << std::hex << frame_sh_ptr->can_id << std::dec << std::endl; }
     );
 
   }
@@ -213,45 +210,15 @@ class Vehicle : public boost::asio::io_service {
 
   void BnoReceive() {
 
-//    auto t0 = std::chrono::steady_clock::now();
-    auto euler = m_bno_interface.GetEuler();
-    auto pitch = euler.r * M_PI / 180.0;
-//    auto t1 = std::chrono::steady_clock::now();
-    auto gyro_y = m_bno_interface.GetGyroY();
-//    auto t2 = std::chrono::steady_clock::now();
+    auto t0 = std::chrono::steady_clock::now();
+    m_bno_interface.Update();
+    auto t1 = std::chrono::steady_clock::now();
+//    std::cout << "bno update: " << std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0).count() << "\n";
+    if (std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0).count() > 15) {
+      exit(0);
+    }
 
-//    std::cout << "bno euler: " << std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0).count() << "\n";
-//    std::cout << "bno gyro: " << std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count() << "\n";
-
-//    if (std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t0).count() > 10) {
-//      exit(0);
-//    }
-
-    auto torque = GetTorque(pitch, gyro_y);
-
-    nlohmann::json json;
-
-//    Eigen::Vector2d tt;
-//
-//    tt(0) = torque[0];
-//    tt(1) = torque[1];
-
-    json["torque0"] = torque[0];
-    json["torque1"] = torque[1];
-    json["pitch"] = pitch;
-    json["gyro_y"] = gyro_y;
-
-    json["velocity0"] = m_motors[0].m_state.velocity;
-    json["velocity1"] = m_motors[1].m_state.velocity;
-
-    json["position0"] = m_motors[0].m_state.position;
-    json["position1"] = m_motors[1].m_state.position;
-
-    post(m_file_io_strand.wrap([json](){
-      const auto msgpack = nlohmann::json::to_msgpack(json);
-      std::ofstream("dump.msg", std::ios::app | std::ios::binary).write(
-          reinterpret_cast<const char *>(msgpack.data()), msgpack.size() * sizeof(uint8_t));
-    }));
+    auto torque = GetTorque(m_bno_interface.m_state.theta, m_bno_interface.m_state.theta_dot);
 
     for (int n = 0; n < m_motors.size(); n++) {
       auto[ctrl_buffer, ctrl_handler] = m_motors[n].BuildTorqueBuffer(torque[n]);
@@ -260,7 +227,39 @@ class Vehicle : public boost::asio::io_service {
       auto[query_buffer, query_handler] = m_motors[n].BuildQueryBuffer();
       m_stream.async_write_some(query_buffer, query_handler);
     }
+
     ScheduleBnoReceiveTimed();
+
+    // Log some data ...
+
+    nlohmann::json json;
+
+    json["timestamp"] = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
+
+    json["theta"] = m_bno_interface.m_state.theta;
+    json["theta_dot"] = m_bno_interface.m_state.theta_dot;
+
+    json["raw_theta"] = m_bno_interface.m_state_raw.theta;
+    json["raw_theta_dot"] = m_bno_interface.m_state_raw.theta_dot;
+
+    json["torque0"] = torque[0];
+    json["torque1"] = torque[1];
+
+    json["velocity0"] = m_motors[0].m_state.velocity;
+    json["velocity1"] = m_motors[1].m_state.velocity;
+
+    json["position0"] = m_motors[0].m_state.position;
+    json["position1"] = m_motors[1].m_state.position;
+
+    json["mode0"] = m_motors[0].m_state.mode;
+    json["mode1"] = m_motors[1].m_state.mode;
+
+    post(m_file_io_strand.wrap([json](){
+      const auto msgpack = nlohmann::json::to_msgpack(json);
+      std::ofstream("dump.msg", std::ios::app | std::ios::binary).write(
+          reinterpret_cast<const char *>(msgpack.data()), msgpack.size() * sizeof(uint8_t));
+    }));
+
   }
 
   void ScheduleCanReceive() {

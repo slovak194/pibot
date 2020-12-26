@@ -67,33 +67,64 @@ BNO055::~BNO055() {
 
 
 bno055_euler_double_t BNO055::GetEuler() {
-  struct bno055_euler_double_t d_euler_hpr;
+  bno055_euler_double_t d_euler_hpr = {0};
   auto result = bno055_convert_double_euler_hpr_deg(&d_euler_hpr);
+//  auto result = bno055_convert_double_euler_hpr_rad(&d_euler_hpr);
+
+  m_state_raw.theta = d_euler_hpr.r * M_PI / 180.0;
 
   if (result != BNO055_SUCCESS) {
     d_euler_hpr.r = 0.0;
     d_euler_hpr.p = 0.0;
     d_euler_hpr.h = 0.0;
+  } else {
+    d_euler_hpr.r = d_euler_hpr.r * M_PI / 180.0;
+    d_euler_hpr.p = d_euler_hpr.p * M_PI / 180.0;
+    d_euler_hpr.h = d_euler_hpr.h * M_PI / 180.0;
   }
 
   return d_euler_hpr;
-}
-
-bno055_gyro_double_t BNO055::GetGyro() {
-
-  struct bno055_gyro_double_t d_gyro_xyz_rps;
-  auto result = bno055_convert_double_gyro_xyz_rps(&d_gyro_xyz_rps);
-  return d_gyro_xyz_rps;
 }
 
 double BNO055::GetGyroY() {
   double d_gyro_y;
 //  auto result = bno055_convert_double_gyro_y_rps(&d_gyro_y);  // This causes unintentional mode switching.
   auto result = bno055_convert_double_gyro_y_dps(&d_gyro_y);
+
+  m_state_raw.theta_dot = d_gyro_y * M_PI / 180.0;
+
   if (result == BNO055_SUCCESS) {
     return d_gyro_y * M_PI / 180.0;
   } else {
     return 0.0;
+  }
+
+}
+
+
+void BNO055::Update() {
+  std::uint64_t now = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
+  auto euler = GetEuler();
+  auto theta = euler.r; // TODO, OLSLO, check this!!!
+  auto theta_dot = GetGyroY();
+
+  if (m_state.timestamp == 0U) {
+    if (std::abs(theta_dot) < 20.0 && std::abs(theta) < 0.1) {
+      m_state.timestamp = now;
+      m_state.theta = theta;
+      m_state.theta_dot = theta_dot;
+    }
+  } else {
+
+    auto ts = static_cast<double>(now - m_state.timestamp) * 1e-6;
+
+    double pred_theta = m_state.theta + m_state.theta_dot * ts;
+
+    if (std::abs(theta - pred_theta) < M_PI/48 && std::abs(theta_dot) < 20.0) {
+      m_state.timestamp = now;
+      m_state.theta = theta;
+      m_state.theta_dot = theta_dot;
+    }
   }
 
 }

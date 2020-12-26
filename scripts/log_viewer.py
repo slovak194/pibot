@@ -92,8 +92,9 @@ def plot_df_entry(df, data_groups, skip_names=(), wrt_iloc=False, fig=None, tigh
 
 dump = load_dataset("/home/slovak/pibot/build/dump.msg")
 
-# torque = dump.torque.to_numpy()
+dump.keys()
 
+dump.timestamp = (dump.timestamp - dump.timestamp[0])*1e-3
 
 f, axs = plot_df_entry(None, [
     [],
@@ -107,28 +108,34 @@ n = -1
 
 n += 1
 ax = axs[n]
-ax.plot(dump.gyro_y, '.-', label="gyro_y")
+ax.plot(dump.timestamp, dump.theta_dot, '.-', label="theta_dot")
+# ax.plot(dump.timestamp, dump.raw_theta_dot, '.-', label="raw_theta_dot")
 xl = ax.legend()
 
 n += 1
 ax = axs[n]
-ax.plot(dump.pitch, '.-', label="pitch")
+ax.plot(dump.timestamp, dump.theta, '.-', label="theta")
+# ax.plot(dump.timestamp, dump.raw_theta, '.-', label="raw_theta")
 xl = ax.legend()
 
 n += 1
 ax = axs[n]
-ax.plot(dump.torque0, '.-', label="torque0")
+ax.plot(dump.timestamp, dump.torque0, '.-', label="torque0")
 xl = ax.legend()
 
 n += 1
 ax = axs[n]
-ax.plot(dump.velocity0, '.-', label="velocity0")
-ax.plot(dump.velocity1, '.-', label="velocity1")
+ax.plot(dump.timestamp, dump.velocity0, '.-', label="velocity0")
+ax.plot(dump.timestamp, dump.velocity1, '.-', label="velocity1")
 xl = ax.legend()
 
 n += 1
 ax = axs[n]
-ax.plot(dump.position0, '.-', label="position0")
-ax.plot(dump.position1, '.-', label="position1")
+ax.plot(dump.timestamp, dump.position0, '.-', label="position0")
+ax.plot(dump.timestamp, dump.position1, '.-', label="position1")
 xl = ax.legend()
 
+
+# %%
+
+plt.plot(np.diff(dump.timestamp))

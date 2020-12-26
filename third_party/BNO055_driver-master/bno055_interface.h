@@ -1,6 +1,8 @@
 #ifndef __BNO055_INTERFACE_H__
 #define __BNO055_INTERFACE_H__
 
+#include <cstdint>
+
 #include <pigpio.h>
 
 #include "bno055.h"
@@ -11,9 +13,18 @@ class BNO055 {
   BNO055();
   ~BNO055();
 
+  struct state_t {
+    std::uint64_t timestamp = 0U;
+    double theta = 0.0;
+    double theta_dot = 0.0;
+  };
+
+  state_t m_state = {0};
+  state_t m_state_raw = {0};
+
   bno055_euler_double_t GetEuler();
-  bno055_gyro_double_t GetGyro();
   double GetGyroY();
+  void Update();
 
  private:
   bno055_t m_sensor_parameters;
