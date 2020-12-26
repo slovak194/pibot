@@ -23,6 +23,38 @@
 #include "motor.h"
 
 
+struct State {
+  double x;
+  double theta;
+  double x_dot;
+  double theta_dot;
+  double omega;
+};
+
+struct Parameters {
+  double m_c = 0.390;
+  double m_p = 0.614;
+  double L = 0.154;
+  double g = 9.81;
+};
+
+class Controller {
+  static std::vector<double> Step(State state) {
+
+    float wheel_r = 0.07f;
+
+    double k_p = 5.0;
+    double k_d = 1.0;
+
+    auto f = state.theta * k_p + state.theta_dot * k_d;
+
+    double t = f * wheel_r / 2.0f;
+
+    return {t, t};
+  }
+};
+
+
 class Vehicle : public boost::asio::io_service {
  private:
 
@@ -37,7 +69,7 @@ class Vehicle : public boost::asio::io_service {
 
   boost::asio::io_service::strand m_file_io_strand;
 
-  std::vector<Motor> m_motors = {Motor(1), Motor(2)};
+  std::vector<Motor> m_motors = {Motor(1), Motor(2, true)};
 
   canfd_frame m_receive_frame;
 
@@ -52,7 +84,7 @@ class Vehicle : public boost::asio::io_service {
 
     float t = f * wheel_r / 2.0f;
 
-    return {t, -t};
+    return {t, t};
   }
 
   void SetSigintHandler() {
@@ -115,7 +147,7 @@ class Vehicle : public boost::asio::io_service {
     json["torque1"] = torque[1];
 
     auto velocity_l = 2 * M_PI * 0.07 * m_motors[0].m_state.velocity;
-    auto velocity_r = 2 * M_PI * 0.07 * m_motors[1].m_state.velocity * -1;
+    auto velocity_r = 2 * M_PI * 0.07 * m_motors[1].m_state.velocity;
 
     double wheel_base = 0.183;
 

@@ -27,10 +27,12 @@ struct Motor {
   std::uint32_t m_id;
   canfd_frame m_receive_frame;
 
+  bool m_reversed = false;
+
   moteus::QueryResult m_state;
 
-  explicit Motor(std::uint32_t id = 1U)
-      : m_id(id), m_can_send_resp_id(EXT_ID_ENABLE | FORCE_SERVO_RESPONCE | id), m_can_send_no_resp_id(EXT_ID_ENABLE | id), m_can_receive_id(0x100 * id) {
+  explicit Motor(std::uint32_t id = 1U, bool reversed = false)
+      : m_reversed(reversed), m_id(id), m_can_send_resp_id(EXT_ID_ENABLE | FORCE_SERVO_RESPONCE | id), m_can_send_no_resp_id(EXT_ID_ENABLE | id), m_can_receive_id(0x100 * id) {
   }
 
   void dump() {
@@ -42,6 +44,10 @@ struct Motor {
 
     if (std::abs(t_Nm) > 1.0) {
       t_Nm = 0.0;
+    }
+
+    if (m_reversed) {
+      t_Nm = t_Nm * -1;
     }
 
     moteus::CanFrame f;
@@ -139,6 +145,12 @@ struct Motor {
     if (frame.can_id == m_can_receive_id) {
       m_receive_frame = frame;
       m_state = moteus::ParseQueryResult(m_receive_frame.data, m_receive_frame.len);
+
+      if (m_reversed) {
+        m_state.velocity = m_state.velocity * -1;
+        m_state.position = m_state.position * -1;
+      }
+
     }
   }
 
