@@ -33,6 +33,19 @@ struct Motor {
 
   explicit Motor(std::uint32_t id = 1U, bool reversed = false)
       : m_reversed(reversed), m_id(id), m_can_send_resp_id(EXT_ID_ENABLE | FORCE_SERVO_RESPONCE | id), m_can_send_no_resp_id(EXT_ID_ENABLE | id), m_can_receive_id(0x100 * id) {
+
+
+    m_state.mode = moteus::Mode::kStopped;
+    m_state.position = 0.0;
+    m_state.velocity = 0.0;
+    m_state.torque = 0.0;
+    m_state.q_current = 0.0;
+    m_state.d_current = 0.0;
+    m_state.rezero_state = false;
+    m_state.voltage = 0.0;
+    m_state.temperature = 0.0;
+    m_state.fault = 0;
+
   }
 
   void dump() {
@@ -149,6 +162,14 @@ struct Motor {
       if (m_reversed) {
         m_state.velocity = m_state.velocity * -1;
         m_state.position = m_state.position * -1;
+      }
+
+      if (!std::isfinite(m_state.velocity)) {
+        m_state.velocity = 0.0;
+      }
+
+      if (!std::isfinite(m_state.position)) {
+        m_state.position = 0.0;
       }
 
     }

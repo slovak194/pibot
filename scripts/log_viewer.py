@@ -91,12 +91,58 @@ def plot_df_entry(df, data_groups, skip_names=(), wrt_iloc=False, fig=None, tigh
 
 
 dump = load_dataset("/home/slovak/pibot/build/dump.msg")
-
 dump.keys()
-
 dump.timestamp = (dump.timestamp - dump.timestamp[0])*1e-3
 
 f, axs = plot_df_entry(None, [
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+], wrt_iloc=True, fig=1, tight=False)
+
+n = -1
+
+
+
+n += 1
+ax = axs[n]
+ax.plot(dump.timestamp, dump.x, '.-', label="x")
+xl = ax.legend()
+
+n += 1
+ax = axs[n]
+ax.plot(dump.timestamp, dump.x_dot, '.-', label="x_dot")
+xl = ax.legend()
+
+n += 1
+ax = axs[n]
+ax.plot(dump.timestamp, dump.theta, '.-', label="theta")
+xl = ax.legend()
+
+n += 1
+ax = axs[n]
+ax.plot(dump.timestamp, dump.theta_dot, '.-', label="theta_dot")
+xl = ax.legend()
+
+n += 1
+ax = axs[n]
+ax.plot(dump.timestamp, dump.omega, '.-', label="omega")
+xl = ax.legend()
+
+
+# %%
+
+
+dump = load_dataset("/home/slovak/pibot/build/dump.msg")
+dump.keys()
+dump.timestamp = (dump.timestamp - dump.timestamp[0])*1e-3
+
+
+f, axs = plot_df_entry(None, [
+    [],
     [],
     [],
     [],
@@ -108,36 +154,29 @@ n = -1
 
 n += 1
 ax = axs[n]
-ax.plot(dump.timestamp, dump.theta_dot, '.-', label="theta_dot")
-# ax.plot(dump.timestamp, dump.raw_theta_dot, '.-', label="raw_theta_dot")
+ax.plot(dump.timestamp, dump.m_f_theta, '.-', label="m_f_theta")
+ax.plot(dump.timestamp, dump.m_f_theta_dot, '.-', label="m_f_theta_dot")
 xl = ax.legend()
 
 n += 1
 ax = axs[n]
-ax.plot(dump.timestamp, dump.theta, '.-', label="theta")
-# ax.plot(dump.timestamp, dump.raw_theta, '.-', label="raw_theta")
+ax.plot(dump.timestamp, dump.m_f_x, '.-', label="m_f_x")
+ax.plot(dump.timestamp, dump.m_f_x_dot, '.-', label="m_f_x_dot")
 xl = ax.legend()
 
-n += 1
-ax = axs[n]
-ax.plot(dump.timestamp, dump.torque0, '.-', label="torque0")
-xl = ax.legend()
-
-n += 1
-ax = axs[n]
-# ax.plot(dump.timestamp, dump.velocity0, '.-', label="velocity0")
-# ax.plot(dump.timestamp, dump.velocity1, '.-', label="velocity1")
-ax.plot(dump.timestamp, dump.omega, '.-', label="omega")
-xl = ax.legend()
-
-n += 1
-ax = axs[n]
-ax.plot(dump.timestamp, dump.x_dot, '.-', label="x_dot")
+#
+# n += 1
+# ax = axs[n]
+# ax.plot(dump.timestamp, dump.torque0, '.-', label="torque0")
+# ax.plot(dump.timestamp, dump.torque1, '.-', label="torque1")
+# xl = ax.legend()
+#
+# n += 1
+# ax = axs[n]
+# # ax.plot(dump.timestamp, dump.mode0, '.-', label="mode0")
 # ax.plot(dump.timestamp, dump.position0, '.-', label="position0")
 # ax.plot(dump.timestamp, dump.position1, '.-', label="position1")
-xl = ax.legend()
-
-
-# %%
-
-plt.plot(np.diff(dump.timestamp), '.')
+# xl = ax.legend()
+#
+#
+# # plt.plot(np.diff(dump.timestamp), '.')

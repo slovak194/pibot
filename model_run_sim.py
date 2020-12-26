@@ -157,6 +157,12 @@ axs[1].plot(Y[:, 1], '.-', label="theta")
 axs[1].plot(Y[:, 3], '.-', label="theta_dot")
 axs[1].legend()
 
+
+f = INP
+
+t = f * 0.035 / 2.0
+
+axs[2].plot(t, '.-', label='torque')
 axs[2].plot(INP, '.-', label='F')
 axs[2].legend()
 

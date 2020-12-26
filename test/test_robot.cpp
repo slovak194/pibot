@@ -36,27 +36,64 @@ struct Parameters {
   double m_p = 0.614;
   double L = 0.154;
   double g = 9.81;
+
+  double wheel_r = 0.035f;
+  double wheel_base = 0.183;
 };
 
 class Controller {
-  static std::vector<double> Step(State state) {
 
-    float wheel_r = 0.07f;
+ public:
 
-    double k_p = 5.0;
-    double k_d = 1.0;
+  Parameters m_params;
 
-    auto f = state.theta * k_p + state.theta_dot * k_d;
+  double m_f_x = 0.0;
+  double m_f_x_dot = 0.0;
+  double m_f_theta = 0.0;
+  double m_f_theta_dot = 0.0;
+  double m_f_omega = 0.0;
+  double m_f = 0.0;
 
-    double t = f * wheel_r / 2.0f;
+  double m_x = 0.0;
 
-    return {t, t};
+  std::vector<double> Step(State state) {
+
+    if (m_x == 0.0) {
+      m_x = state.x;
+    }
+
+    double k_p = 20.0;
+    double k_d = 2.0;
+
+    m_f_theta = state.theta * k_p;
+    m_f_theta_dot = state.theta_dot * k_d ;
+
+    m_f_x = 1.0 * (state.x - m_x);
+    m_f_x_dot = 1.0 * state.x_dot;
+
+    m_f_omega = 0.05 * state.omega / 2.0;
+
+    m_f = m_f_theta + m_f_theta_dot + m_f_x_dot + m_f_x;
+
+    double t = m_f * m_params.wheel_r / 2.0f;
+
+    double t_l = t + m_f_omega;
+    double t_r = t - m_f_omega;
+
+//    t = t*0.0;
+
+//    std::cout << "f_theta: " << f_theta << " f_x_dot: " << f_x_dot << " f: " << f << "\n";
+
+    return {t_l, t_r};
   }
 };
 
 
 class Vehicle : public boost::asio::io_service {
  private:
+
+  State m_state;
+  Controller m_ctrl;
 
   BNO055 m_bno_interface;
 
@@ -69,23 +106,9 @@ class Vehicle : public boost::asio::io_service {
 
   boost::asio::io_service::strand m_file_io_strand;
 
-  std::vector<Motor> m_motors = {Motor(1), Motor(2, true)};
+  std::vector<Motor> m_motors = {Motor(1, false), Motor(2, true)};
 
   canfd_frame m_receive_frame;
-
-  static std::vector<float> GetTorque(double pitch, double dpitch) {
-
-    double k_p = 5.0;
-    double k_d = 1.0;
-
-    auto f = static_cast<float>(pitch * k_p + dpitch * k_d);
-
-    float wheel_r = 0.07f;
-
-    float t = f * wheel_r / 2.0f;
-
-    return {t, t};
-  }
 
   void SetSigintHandler() {
     m_signals.async_wait([this](const boost::system::error_code &error, int signal_number) {
@@ -98,6 +121,9 @@ class Vehicle : public boost::asio::io_service {
   void SetStopAll() {
     for (auto &m : m_motors) {
       auto[ctrl_buffer, ctrl_handler] = m.BuildStopBuffer();
+      m_stream.async_write_some(ctrl_buffer, ctrl_handler);
+      m_stream.async_write_some(ctrl_buffer, ctrl_handler);
+      m_stream.async_write_some(ctrl_buffer, ctrl_handler);
       m_stream.async_write_some(ctrl_buffer, ctrl_handler);
     }
   }
@@ -117,7 +143,24 @@ class Vehicle : public boost::asio::io_service {
       exit(0);
     }
 
-    auto torque = GetTorque(m_bno_interface.m_state.theta, m_bno_interface.m_state.theta_dot);
+
+    // Update state
+
+//    auto velocity_l = 2 * M_PI * 0.035 * (m_motors[0].m_state.velocity - 2 * M_PI * m_bno_interface.m_state.theta_dot);
+//    auto velocity_r = 2 * M_PI * 0.035 * (m_motors[1].m_state.velocity - 2 * M_PI * m_bno_interface.m_state.theta_dot);
+
+    auto velocity_l = 2 * M_PI * 0.035 * m_motors[0].m_state.velocity;
+    auto velocity_r = 2 * M_PI * 0.035 * m_motors[1].m_state.velocity;
+
+    double wheel_base = 0.183;
+
+    m_state.x = (m_motors[0].m_state.position + m_motors[1].m_state.position)/2.0;
+    m_state.theta = m_bno_interface.m_state.theta;
+    m_state.x_dot = (velocity_r + velocity_l) / 2.0;
+    m_state.theta_dot = m_bno_interface.m_state.theta_dot;
+    m_state.omega = (velocity_r - velocity_l) / wheel_base;
+
+    auto torque = m_ctrl.Step(m_state);
 
     for (int n = 0; n < m_motors.size(); n++) {
       auto[ctrl_buffer, ctrl_handler] = m_motors[n].BuildTorqueBuffer(torque[n]);
@@ -131,10 +174,20 @@ class Vehicle : public boost::asio::io_service {
 
     // Log some data ...
 
+//    std::cout << "mode0: " << int(m_motors[0].m_state.mode) << " mode1: " << int(m_motors[1].m_state.mode) << std::endl;
+
     nlohmann::json json;
 
     json["timestamp"] = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
 
+    json["m_f_theta"] = m_ctrl.m_f_theta;
+    json["m_f_theta_dot"] = m_ctrl.m_f_theta_dot;
+    json["m_f_x"] = m_ctrl.m_f_x;
+    json["m_f_x_dot"] = m_ctrl.m_f_x_dot;
+    json["m_f_omega"] = m_ctrl.m_f_omega;
+    json["m_f"] = m_ctrl.m_f;
+
+    json["x"] = m_state.x;
     json["theta"] = m_bno_interface.m_state.theta;
     json["theta_dot"] = m_bno_interface.m_state.theta_dot;
     json["omega"] = m_bno_interface.m_state.omega;
@@ -146,15 +199,8 @@ class Vehicle : public boost::asio::io_service {
     json["torque0"] = torque[0];
     json["torque1"] = torque[1];
 
-    auto velocity_l = 2 * M_PI * 0.07 * m_motors[0].m_state.velocity;
-    auto velocity_r = 2 * M_PI * 0.07 * m_motors[1].m_state.velocity;
-
-    double wheel_base = 0.183;
-
-    auto omega = (velocity_r - velocity_l) / wheel_base;
-
-    json["omega"] = omega;
-    json["x_dot"] = (velocity_r - velocity_l) / 2.0;
+    json["omega"] = m_state.omega;
+    json["x_dot"] = m_state.x_dot;
 
     json["velocity_l"] = velocity_l;
     json["velocity_r"] = velocity_r;
