@@ -1,4 +1,5 @@
 #include <memory>
+#include <cstdio>
 #include <chrono>
 #include <unistd.h>
 #include <iostream>
@@ -289,6 +290,14 @@ class Vehicle : public boost::asio::io_service {
 int main(int argc, char *argv[]) {
 
   auto conf = std::make_shared<Config>();
+
+  std::string dump_file_path = (*conf)["dump_base_path"].get<std::string>() + "dump.msg";
+
+  if (std::remove(dump_file_path.c_str())) {
+    std::cout << "Cannot remove dump.msg!" << std::endl;
+  } else {
+    std::cout << "dump.msg has been removed." << std::endl;
+  }
 
   Vehicle veh(conf);
   veh.run();
