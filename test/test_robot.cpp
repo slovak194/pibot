@@ -20,7 +20,7 @@
 #include <Json2Eigen.hpp>
 
 #include "bno055_interface.h"
-#include "motor.h"
+#include "Motor.h"
 #include "Config.h"
 
 
