@@ -19,4 +19,6 @@ add_executable(test_bno55_asio test_bno55_asio.cpp)
 
 add_executable(test_moteus_query test_moteus_query.cpp)
 
-add_executable(test_robot test_robot.cpp)
+add_executable(test_robot test_robot.cpp ../src/Config.cpp)
+
+target_compile_definitions(test_robot PUBLIC PROJECT_SOURCE_DIR="${PROJECT_SOURCE_DIR}")

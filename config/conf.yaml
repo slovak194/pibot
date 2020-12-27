@@ -1,0 +1,18 @@
+model:
+  g: 9.81
+
+  cart_mass: 0.390
+
+  pendulum_mass: 0.614
+  pendulum_height: 0.154
+
+  wheel_radius: 0.035
+  wheel_base: 0.183
+
+ctrl:
+  x_k: 1.0
+  theta_k: 20.0
+  x_dot_k: 1.0
+  theta_dot_k: 2.0
+  omega_k: 0.05
+
