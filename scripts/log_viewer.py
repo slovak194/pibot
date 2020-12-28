@@ -92,7 +92,7 @@ def plot_df_entry(df, data_groups, skip_names=(), wrt_iloc=False, fig=None, tigh
 
 dump = load_dataset("/home/slovak/pibot/build/dump.msg")
 dump.keys()
-dump.timestamp = (dump.timestamp - dump.timestamp[0])*1e-3
+dump.timestamp = (dump.timestamp - dump.timestamp[0])*1e-6
 
 f, axs = plot_df_entry(None, [
     [],
@@ -138,12 +138,10 @@ xl = ax.legend()
 
 dump = load_dataset("/home/slovak/pibot/build/dump.msg")
 dump.keys()
-dump.timestamp = (dump.timestamp - dump.timestamp[0])*1e-3
+dump.timestamp = (dump.timestamp - dump.timestamp[0])*1e-6
 
 
 f, axs = plot_df_entry(None, [
-    [],
-    [],
     [],
     [],
     [],
@@ -162,21 +160,64 @@ n += 1
 ax = axs[n]
 ax.plot(dump.timestamp, dump.m_f_x, '.-', label="m_f_x")
 ax.plot(dump.timestamp, dump.m_f_x_dot, '.-', label="m_f_x_dot")
+ax.plot(dump.timestamp, dump.m_f_x + dump.m_f_x_dot, '.-', label="dump.m_f_x + dump.m_f_x_dot")
+xl = ax.legend()
+
+
+
+n += 1
+ax = axs[n]
+ax.plot(dump.timestamp, dump.torque0, '.-', label="torque0")
+ax.plot(dump.timestamp, dump.torque1, '.-', label="torque1")
+xl = ax.legend()
+
+n += 1
+ax = axs[n]
+ax.plot(dump.timestamp, dump.mode_l, '.-', label="mode_l")
+ax.plot(dump.timestamp, dump.mode_r, '.-', label="mode_r")
+ax.plot(dump.timestamp, dump.mode_r, '.-', label="mode_r")
+# ax.plot(dump.timestamp, dump.position0, '.-', label="position0")
+# ax.plot(dump.timestamp, dump.position1, '.-', label="position1")
+xl = ax.legend()
+#
+#
+# # plt.plot(np.diff(dump.timestamp), '.')
+
+
+# %%
+
+
+dump = load_dataset("/home/slovak/pibot/build/dump.msg")
+dump.keys()
+dump.timestamp = (dump.timestamp - dump.timestamp[0])*1e-6
+
+f, axs = plot_df_entry(None, [
+    [],
+    [],
+], wrt_iloc=True, fig=1, tight=False)
+
+n = -1
+
+velocity_raw_l_rot_per_sec = dump.velocity_raw_l
+velocity_raw_r_rot_per_sec = dump.velocity_raw_r
+
+theta_dot_rot_per_sec = dump.theta_dot / (2.0 * np.pi)
+
+n += 1
+ax = axs[n]
+ax.plot(dump.timestamp, velocity_raw_l_rot_per_sec, '.-', label="velocity_raw_l_rot_per_sec")
+ax.plot(dump.timestamp, velocity_raw_r_rot_per_sec, '.-', label="velocity_raw_r_rot_per_sec")
+ax.plot(dump.timestamp, theta_dot_rot_per_sec, '.-', label="theta_dot_rot_per_sec")
+xl = ax.legend()
+
+
+
+n += 1
+ax = axs[n]
+ax.plot(dump.timestamp, velocity_raw_l_rot_per_sec + theta_dot_rot_per_sec, '.-', label="velocity_raw_l_rot_per_sec")
 xl = ax.legend()
 
 #
 # n += 1
 # ax = axs[n]
-# ax.plot(dump.timestamp, dump.torque0, '.-', label="torque0")
-# ax.plot(dump.timestamp, dump.torque1, '.-', label="torque1")
 # xl = ax.legend()
-#
-# n += 1
-# ax = axs[n]
-# # ax.plot(dump.timestamp, dump.mode0, '.-', label="mode0")
-# ax.plot(dump.timestamp, dump.position0, '.-', label="position0")
-# ax.plot(dump.timestamp, dump.position1, '.-', label="position1")
-# xl = ax.legend()
-#
-#
-# # plt.plot(np.diff(dump.timestamp), '.')

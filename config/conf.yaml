@@ -10,9 +10,8 @@ model:
   wheel_base: 0.183
 
 ctrl:
-  x_k: 1.0
-  theta_k: 20.0
-  x_dot_k: 1.0
+  theta_k: 15.0
   theta_dot_k: 2.0
+  x_k: 0.5
+  x_dot_k: 3.0
   omega_k: 0.05
-

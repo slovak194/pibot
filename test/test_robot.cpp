@@ -24,6 +24,9 @@
 #include "Motor.h"
 #include "Config.h"
 
+template <typename T> int sgn(T val) {
+  return (T(0) < val) - (val < T(0));
+}
 
 struct State {
   double x;
@@ -72,8 +75,8 @@ class Controller {
     m_f_theta = state.theta * theta_k;
     m_f_theta_dot = state.theta_dot * theta_dot_k ;
 
-    m_f_x = x_k * (state.x - m_x);
     m_f_x_dot = x_dot_k * state.x_dot;
+    m_f_x = x_k * (state.x - m_x);
 
     m_f_omega = omega_k * state.omega / 2.0;
 
@@ -153,12 +156,8 @@ class Vehicle : public boost::asio::io_service {
 
     // Update state
 
-//    auto velocity_l = 2 * M_PI * 0.035 * (m_motors[0].m_state.velocity - 2 * M_PI * m_bno_interface.m_state.theta_dot);
-//    auto velocity_r = 2 * M_PI * 0.035 * (m_motors[1].m_state.velocity - 2 * M_PI * m_bno_interface.m_state.theta_dot);
-
-    auto velocity_l = 2 * M_PI * 0.035 * m_motors[0].m_state.velocity;
-    auto velocity_r = 2 * M_PI * 0.035 * m_motors[1].m_state.velocity;
-
+    auto velocity_l = 2 * M_PI * 0.035 * (m_motors[0].m_state.velocity + m_imu.m_state.theta_dot/(2 * M_PI));
+    auto velocity_r = 2 * M_PI * 0.035 * (m_motors[1].m_state.velocity + m_imu.m_state.theta_dot/(2 * M_PI));
 
     double wheel_base = (*m_conf)["model"]["wheel_base"];
 
@@ -188,6 +187,12 @@ class Vehicle : public boost::asio::io_service {
 
     json["timestamp"] = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
 
+    json["x"] = m_state.x;
+    json["theta"] = m_imu.m_state.theta;
+    json["x_dot"] = m_state.x_dot;
+    json["theta_dot"] = m_imu.m_state.theta_dot;
+    json["omega"] = m_state.omega;
+
     json["m_f_theta"] = m_ctrl.m_f_theta;
     json["m_f_theta_dot"] = m_ctrl.m_f_theta_dot;
     json["m_f_x"] = m_ctrl.m_f_x;
@@ -195,29 +200,25 @@ class Vehicle : public boost::asio::io_service {
     json["m_f_omega"] = m_ctrl.m_f_omega;
     json["m_f"] = m_ctrl.m_f;
 
-    json["x"] = m_state.x;
-    json["theta"] = m_imu.m_state.theta;
-    json["theta_dot"] = m_imu.m_state.theta_dot;
-    json["omega"] = m_imu.m_state.omega;
-
-    json["raw_theta"] = m_imu.m_state_raw.theta;
-    json["raw_theta_dot"] = m_imu.m_state_raw.theta_dot;
-    json["raw_omega"] = m_imu.m_state_raw.omega;
-
     json["torque0"] = torque[0];
     json["torque1"] = torque[1];
 
-    json["omega"] = m_state.omega;
-    json["x_dot"] = m_state.x_dot;
+//
+//    json["raw_theta"] = m_imu.m_state_raw.theta;
+//    json["raw_theta_dot"] = m_imu.m_state_raw.theta_dot;
+//    json["raw_omega"] = m_imu.m_state_raw.omega;
 
     json["velocity_l"] = velocity_l;
     json["velocity_r"] = velocity_r;
 
-    json["position0"] = m_motors[0].m_state.position;
-    json["position1"] = m_motors[1].m_state.position;
+    json["velocity_raw_l"] = m_motors[0].m_state.velocity;
+    json["velocity_raw_r"] = m_motors[1].m_state.velocity;
 
-    json["mode0"] = m_motors[0].m_state.mode;
-    json["mode1"] = m_motors[1].m_state.mode;
+    json["position_l"] = m_motors[0].m_state.position;
+    json["position_r"] = m_motors[1].m_state.position;
+
+    json["mode_l"] = m_motors[0].m_state.mode;
+    json["mode_r"] = m_motors[1].m_state.mode;
 
     post(m_file_io_strand.wrap([json](){
       const auto msgpack = nlohmann::json::to_msgpack(json);
