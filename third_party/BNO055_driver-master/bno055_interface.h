@@ -18,6 +18,7 @@ class BNO055 {
     double theta = 0.0;
     double theta_dot = 0.0;
     double omega = 0.0;
+    bool valid = false;
   };
 
   state_t m_state = {0};

@@ -119,7 +119,7 @@ xl = ax.legend()
 
 n += 1
 ax = axs[n]
-ax.plot(dump.timestamp, dump.theta, '.-', label="theta")
+ax.plot(dump.timestamp, dump.theta * 180.0/np.pi, '.-', label="theta")
 xl = ax.legend()
 
 n += 1

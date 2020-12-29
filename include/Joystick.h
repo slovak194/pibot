@@ -79,7 +79,10 @@ class Joystick {
       switch (jse->type & ~JS_EVENT_INIT) {
         case JS_EVENT_BUTTON:
           m_buttons[jse->number] = static_cast<bool>(jse->value);
-//          std::cout << "button: ";
+          std::cout << "button: ";
+
+          std::cout << std::setw(2) << static_cast<int>(jse->number) << ", value: " << jse->value
+                    << std::endl;
           break;
         case JS_EVENT_AXIS:
 
@@ -107,8 +110,6 @@ class Joystick {
 //
 //      std::cout << std::endl;
 
-//      std::cout << std::setw(2) << static_cast<int>(jse->number) << ", value: " << jse->value
-//                << std::endl;
     }
 
     buffer_.consume(bytes_transferred);

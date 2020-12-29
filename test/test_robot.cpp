@@ -32,11 +32,12 @@ template <typename T> int sgn(T val) {
 
 
 struct State {
-  double x;
-  double theta;
-  double x_dot;
-  double theta_dot;
-  double omega;
+  double x = 0.0;
+  double theta = 0.0;
+  double x_dot = 0.0;
+  double theta_dot = 0.0;
+  double omega = 0.0;
+  bool valid = false;
 };
 
 
@@ -62,7 +63,7 @@ class Controller {
 
   std::vector<double> Step(State state, Joystick& joy) {
 
-    if (m_x == 0.0 || joy.m_axes[1] != 0.0) {
+    if (m_x == 0.0 || std::abs(joy.m_axes[1]) > 0.05) {
       m_x = state.x;
     }
 
@@ -71,6 +72,7 @@ class Controller {
     double x_k = (*m_conf)["ctrl"]["x_k"];
     double x_dot_k = (*m_conf)["ctrl"]["x_dot_k"];
     double omega_k = (*m_conf)["ctrl"]["omega_k"];
+    double x_dot_abs_max = (*m_conf)["ctrl"]["x_dot_abs_max"];
 
     double k_j_omega = (*m_conf)["joy"]["k_j_omega"];
     double k_j_x_dot = (*m_conf)["joy"]["k_j_x_dot"];
@@ -97,8 +99,20 @@ class Controller {
     double t_l = t + m_f_omega;
     double t_r = t - m_f_omega;
 
-//    t_l = 0.0;
-//    t_r = 0.0;
+    if (!state.valid) {
+      t_l = 0.0;
+      t_r = 0.0;
+    }
+
+    if (std::abs(state.x_dot) > x_dot_abs_max) {
+      std::cout << "Too fast, exiting ..." << std::endl;
+      exit(1);
+    }
+
+    if (joy.m_buttons[6]) {
+      std::cout << "Stop requested, exiting ..." << std::endl;
+      exit(0);
+    }
 
 //    std::cout << "f_theta: " << f_theta << " f_x_dot: " << f_x_dot << " f: " << f << "\n";
 
@@ -161,7 +175,8 @@ class Vehicle : public boost::asio::io_service {
     auto t1 = std::chrono::steady_clock::now();
 //    std::cout << "bno update: " << std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0).count() << "\n";
     if (std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0).count() > 15) {
-      exit(0);
+      std::cout << "loop time > 15ms, exiting ... " << std::endl;
+      exit(-1);
     }
 
 
@@ -177,6 +192,8 @@ class Vehicle : public boost::asio::io_service {
     m_state.x_dot = (velocity_r + velocity_l) / 2.0;
     m_state.theta_dot = m_imu.m_state.theta_dot;
     m_state.omega = (velocity_r - velocity_l) / wheel_base;
+
+    m_state.valid = m_imu.m_state.valid;
 
     auto torque = m_ctrl.Step(m_state, m_joy);
 

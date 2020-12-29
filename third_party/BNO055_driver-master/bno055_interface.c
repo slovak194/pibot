@@ -114,10 +114,11 @@ void BNO055::Update() {
 //  m_state_raw.omega = omega;
 
   if (m_state.timestamp == 0U) {
-    if (std::abs(theta_dot) < 20.0 && std::abs(theta) < 0.1/* && std::abs(omega) < 0.1*/) {
+    if (std::abs(theta_dot) < 5.0 && std::abs(theta) < 0.1/* && std::abs(omega) < 0.1*/) {
       m_state.timestamp = now;
       m_state.theta = theta;
       m_state.theta_dot = theta_dot;
+      m_state.valid = true;
 //      m_state.omega = omega;
     }
   } else {

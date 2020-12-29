@@ -13,8 +13,9 @@ ctrl:
   theta_k: 15.0
   theta_dot_k: 2.0
   x_k: 0.0 #0.5
-  x_dot_k: -3.0
+  x_dot_k: -2.5
   omega_k: -0.05
+  x_dot_abs_max: 2.0
 
 joy:
   k_j_omega: -5.0
