@@ -173,9 +173,9 @@ xl = ax.legend()
 
 n += 1
 ax = axs[n]
-ax.plot(dump.timestamp, dump.mode_l, '.-', label="mode_l")
-ax.plot(dump.timestamp, dump.mode_r, '.-', label="mode_r")
-ax.plot(dump.timestamp, dump.mode_r, '.-', label="mode_r")
+ax.plot(dump.timestamp, dump.m_f_omega, '.-', label="m_f_omega")
+# ax.plot(dump.timestamp, dump.mode_r, '.-', label="mode_r")
+# ax.plot(dump.timestamp, dump.mode_r, '.-', label="mode_r")
 # ax.plot(dump.timestamp, dump.position0, '.-', label="position0")
 # ax.plot(dump.timestamp, dump.position1, '.-', label="position1")
 xl = ax.legend()

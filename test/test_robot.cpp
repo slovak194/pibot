@@ -24,9 +24,12 @@
 #include "Motor.h"
 #include "Config.h"
 
+#include "Joystick.h"
+
 template <typename T> int sgn(T val) {
   return (T(0) < val) - (val < T(0));
 }
+
 
 struct State {
   double x;
@@ -57,9 +60,9 @@ class Controller {
 
   }
 
-  std::vector<double> Step(State state) {
+  std::vector<double> Step(State state, Joystick& joy) {
 
-    if (m_x == 0.0) {
+    if (m_x == 0.0 || joy.m_axes[1] != 0.0) {
       m_x = state.x;
     }
 
@@ -69,16 +72,23 @@ class Controller {
     double x_dot_k = (*m_conf)["ctrl"]["x_dot_k"];
     double omega_k = (*m_conf)["ctrl"]["omega_k"];
 
+    double k_j_omega = (*m_conf)["joy"]["k_j_omega"];
+    double k_j_x_dot = (*m_conf)["joy"]["k_j_x_dot"];
+
     double wheel_radius = (*m_conf)["model"]["wheel_radius"];
 
 
     m_f_theta = state.theta * theta_k;
     m_f_theta_dot = state.theta_dot * theta_dot_k ;
 
-    m_f_x_dot = x_dot_k * state.x_dot;
     m_f_x = x_k * (state.x - m_x);
+    m_f_x_dot = x_dot_k * (k_j_x_dot*joy.m_axes[1] - state.x_dot);
 
-    m_f_omega = omega_k * state.omega / 2.0;
+    //    axis:  3, value: ROT RIGHT + ROT LEFT -
+
+    m_f_omega = omega_k * (k_j_omega*joy.m_axes[3] - state.omega) / 2.0;
+
+//    std::cout << joy.m_axes[3] << "\t" << state.omega << "\n";
 
     m_f = m_f_theta + m_f_theta_dot + m_f_x_dot + m_f_x;
 
@@ -104,6 +114,7 @@ class Vehicle : public boost::asio::io_service {
   Controller m_ctrl;
 
   BNO055 m_imu;
+  Joystick m_joy;
 
   std::shared_ptr<Config> m_conf;
 
@@ -167,7 +178,7 @@ class Vehicle : public boost::asio::io_service {
     m_state.theta_dot = m_imu.m_state.theta_dot;
     m_state.omega = (velocity_r - velocity_l) / wheel_base;
 
-    auto torque = m_ctrl.Step(m_state);
+    auto torque = m_ctrl.Step(m_state, m_joy);
 
     for (int n = 0; n < m_motors.size(); n++) {
       auto[ctrl_buffer, ctrl_handler] = m_motors[n].BuildTorqueBuffer(torque[n]);
@@ -276,7 +287,7 @@ class Vehicle : public boost::asio::io_service {
 
  public:
   Vehicle(std::shared_ptr<Config> conf)
-      : m_ctrl(conf), m_conf(conf), m_stream(*this), m_signals(*this, SIGINT), m_d_timer(*this, boost::posix_time::seconds(50)),
+      : m_joy(*this), m_ctrl(conf), m_conf(conf), m_stream(*this), m_signals(*this, SIGINT), m_d_timer(*this, boost::posix_time::seconds(50)),
         m_file_io_strand(*this) {
 
     SetupCan();

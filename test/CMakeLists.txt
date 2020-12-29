@@ -22,3 +22,6 @@ add_executable(test_moteus_query test_moteus_query.cpp)
 add_executable(test_robot test_robot.cpp ../src/Config.cpp)
 
 target_compile_definitions(test_robot PUBLIC PROJECT_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
+
+add_executable(test_joystick_asio test_joystick_asio.cpp)
+
