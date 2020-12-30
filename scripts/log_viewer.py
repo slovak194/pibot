@@ -23,13 +23,14 @@ def load_dataset(l_dump_path):
     with open(l_dump_path, "rb") as data_file:
         data = [unpacked for unpacked in msgpack.Unpacker(data_file)]
 
-    df = pd.DataFrame(data)
+    df = pd.DataFrame(pd.json_normalize(data))
 
     for k in df.keys():
         if df.dtypes[k] == np.object:
             df[k] = df[k].apply(lambda x: np.array(
                 x["data"], dtype=np.dtype(x["dtype"])).reshape(x["shape"], order=x["order"]))
 
+    # return data
     return df
 
 
@@ -59,20 +60,29 @@ def plot_df_entry(df, data_groups, skip_names=(), wrt_iloc=False, fig=None, tigh
         if df is not None:
             df_columns = df.columns
 
-            for data_name in data_group:
+            for data_obj in data_group:
                 for column in df_columns:
-                    if data_name in column:
+
+                    scale = 1.0
+
+                    if isinstance(data_obj, dict):
+                        scale = data_obj["scale"]
+                        data_name = data_obj["name"]
+                    else:
+                        data_name = data_obj
+
+                    if data_name == column:
                         if any([skip_name in column for skip_name in skip_names]):
                             continue
                         if df[column].dtypes == np.dtype('O'):
                             continue
 
                         if wrt_iloc:
-                            ax[-1].plot(df[column].values,
+                            ax[-1].plot(df[column].values * scale,
                                         '.-', label=str(column))
                         else:
                             ax[-1].plot(df[column].index,
-                                        df[column],
+                                        df[column] * scale,
                                         '.-', label=str(column))
 
         if len(ax[-1].get_lines()) > 0:
@@ -94,44 +104,13 @@ dump = load_dataset("/home/slovak/pibot/build/dump.msg")
 dump.keys()
 dump.timestamp = (dump.timestamp - dump.timestamp[0])*1e-6
 
-f, axs = plot_df_entry(None, [
-    [],
-    [],
-    [],
-    [],
-    [],
-    [],
+f, axs = plot_df_entry(dump, [
+    ["state.x"],
+    ["state.x_dot"],
+    [{"name": "state.theta", "scale": 180.0/np.pi}],
+    ["state.theta_dot"],
+    ["state.omega"],
 ], wrt_iloc=True, fig=1, tight=False)
-
-n = -1
-
-
-
-n += 1
-ax = axs[n]
-ax.plot(dump.timestamp, dump.x, '.-', label="x")
-xl = ax.legend()
-
-n += 1
-ax = axs[n]
-ax.plot(dump.timestamp, dump.x_dot, '.-', label="x_dot")
-xl = ax.legend()
-
-n += 1
-ax = axs[n]
-ax.plot(dump.timestamp, dump.theta * 180.0/np.pi, '.-', label="theta")
-xl = ax.legend()
-
-n += 1
-ax = axs[n]
-ax.plot(dump.timestamp, dump.theta_dot, '.-', label="theta_dot")
-xl = ax.legend()
-
-n += 1
-ax = axs[n]
-ax.plot(dump.timestamp, dump.omega, '.-', label="omega")
-xl = ax.legend()
-
 
 # %%
 

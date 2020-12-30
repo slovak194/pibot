@@ -1,5 +1,5 @@
-#ifndef __BNO055_INTERFACE_H__
-#define __BNO055_INTERFACE_H__
+#ifndef __IMU_H__
+#define __IMU_H__
 
 #include <cstdint>
 
@@ -7,11 +7,11 @@
 
 #include "bno055.h"
 
-class BNO055 {
+class Imu {
 
  public:
-  BNO055();
-  ~BNO055();
+  Imu();
+  ~Imu();
 
   struct state_t {
     std::uint64_t timestamp = 0U;

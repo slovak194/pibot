@@ -1,4 +1,4 @@
-#include "bno055_interface.h"
+#include "Imu.h"
 
 #include <iostream>
 
@@ -9,9 +9,9 @@
 
 using namespace std::chrono_literals;
 
-int16_t BNO055::m_i2c_handle = -1;
+int16_t Imu::m_i2c_handle = -1;
 
-BNO055::BNO055() {
+Imu::Imu() {
   s32 comres = BNO055_ERROR;
 
   if (gpioInitialise() < 0)
@@ -22,9 +22,9 @@ BNO055::BNO055() {
 
   m_i2c_handle=i2cOpen(m_i2c_channel, BNO055_I2C_ADDR1,0);
 
-  m_sensor_parameters.bus_write = BNO055::BNO055_I2C_bus_write;
-  m_sensor_parameters.bus_read = BNO055::BNO055_I2C_bus_read;
-  m_sensor_parameters.delay_msec = BNO055::BNO055_delay_msek;
+  m_sensor_parameters.bus_write = Imu::BNO055_I2C_bus_write;
+  m_sensor_parameters.bus_read = Imu::BNO055_I2C_bus_read;
+  m_sensor_parameters.delay_msec = Imu::BNO055_delay_msek;
   m_sensor_parameters.dev_addr = BNO055_I2C_ADDR1;
 
   comres = bno055_init(&m_sensor_parameters);
@@ -50,7 +50,7 @@ BNO055::BNO055() {
 
 }
 
-BNO055::~BNO055() {
+Imu::~Imu() {
 
   s32 comres = BNO055_ERROR;
 
@@ -66,7 +66,7 @@ BNO055::~BNO055() {
 }
 
 
-bno055_euler_double_t BNO055::GetEuler() {
+bno055_euler_double_t Imu::GetEuler() {
   bno055_euler_double_t d_euler_hpr = {0};
   auto result = bno055_convert_double_euler_hpr_deg(&d_euler_hpr);
 //  auto result = bno055_convert_double_euler_hpr_rad(&d_euler_hpr);
@@ -86,7 +86,7 @@ bno055_euler_double_t BNO055::GetEuler() {
   return d_euler_hpr;
 }
 
-double BNO055::GetGyroY() {
+double Imu::GetGyroY() {
   double d_gyro_y;
 //  auto result = bno055_convert_double_gyro_y_rps(&d_gyro_y);  // This causes unintentional mode switching.
   auto result = bno055_convert_double_gyro_y_dps(&d_gyro_y);
@@ -102,7 +102,7 @@ double BNO055::GetGyroY() {
 }
 
 
-void BNO055::Update() {
+void Imu::Update() {
   std::uint64_t now = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
   auto euler = GetEuler();
   auto theta = euler.r; // TODO, OLSLO, check this!!!
@@ -138,7 +138,7 @@ void BNO055::Update() {
 }
 
 
-s8 BNO055::BNO055_I2C_bus_write(u8 dev_addr, u8 reg_addr, u8 *reg_data, u8 cnt)
+s8 Imu::BNO055_I2C_bus_write(u8 dev_addr, u8 reg_addr, u8 *reg_data, u8 cnt)
 {
 
   int result = i2cWriteI2CBlockData(m_i2c_handle, static_cast<unsigned>(reg_addr), static_cast<char *>(static_cast<void *>(reg_data)), static_cast<unsigned>(cnt));
@@ -154,7 +154,7 @@ s8 BNO055::BNO055_I2C_bus_write(u8 dev_addr, u8 reg_addr, u8 *reg_data, u8 cnt)
   return (s8)BNO055_iERROR;
 }
 
-s8 BNO055::BNO055_I2C_bus_read(u8 dev_addr, u8 reg_addr, u8 *reg_data, u8 cnt)
+s8 Imu::BNO055_I2C_bus_read(u8 dev_addr, u8 reg_addr, u8 *reg_data, u8 cnt)
 {
 
 //  int i2cReadI2CBlockData(unsigned handle, unsigned i2cReg, char *buf, unsigned count);
@@ -171,7 +171,7 @@ s8 BNO055::BNO055_I2C_bus_read(u8 dev_addr, u8 reg_addr, u8 *reg_data, u8 cnt)
   return (s8)BNO055_iERROR;
 }
 
-void BNO055::BNO055_delay_msek(u32 msek)
+void Imu::BNO055_delay_msek(u32 msek)
 {
 
 //  printf("%d\n", msek);

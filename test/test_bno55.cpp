@@ -9,7 +9,7 @@
 
 using namespace std::chrono_literals;
 
-#include "bno055_interface.h"
+#include "Imu.h"
 
 int main(int argc, char * argv[]){
 

@@ -83,6 +83,7 @@ class Joystick {
 
           std::cout << std::setw(2) << static_cast<int>(jse->number) << ", value: " << jse->value
                     << std::endl;
+
           break;
         case JS_EVENT_AXIS:
 
@@ -97,6 +98,7 @@ class Joystick {
           }
 
           m_axes[jse->number] = value;
+
 //          std::cout << "  axis: ";
           break;
       }
@@ -121,7 +123,11 @@ class Joystick {
   }
 
   std::array<bool, 11> m_buttons = {false};
+  std::array<std::uint32_t, 11> m_buttons_time = {0U};
+  std::array<bool, 11> m_buttons_active = {false};
   std::array<double, 8> m_axes = {0.0};
+  std::array<std::uint32_t, 8> m_axes_time = {0U};
+  std::array<bool, 8> m_axes_active = {false};
 
   boost::asio::posix::stream_descriptor joystick_;
   boost::asio::streambuf buffer_;

@@ -9,7 +9,7 @@
 using namespace std::chrono_literals;
 using namespace boost;
 
-#include "bno055_interface.h"
+#include "Imu.h"
 
 class BnoService : public asio::io_service {
  private:

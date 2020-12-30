@@ -9,6 +9,7 @@ m_c, m_p, L, g = parameters
 x, theta, x_dot, theta_dot, x_ddot, theta_ddot = sp.symbols("x, theta, x_dot, theta_dot, x_ddot, theta_ddot")
 state_sim = sp.Matrix([x, theta, x_dot, theta_dot])
 state_ctrl = sp.Matrix([theta, x_dot, theta_dot])
+state_ctrl_2 = sp.Matrix([theta, theta_dot])
 
 F = sp.symbols("F")
 inputs = sp.Matrix([F])
@@ -30,12 +31,17 @@ res = sp.solve(expr, (x_ddot, theta_ddot))
 
 state_sim_dot = sp.Array([x_dot, theta_dot, res[x_ddot], res[theta_ddot]])
 state_ctrl_dot = sp.Array([theta_dot, res[x_ddot], res[theta_ddot]])
+state_ctrl_2_dot = sp.Array([theta_dot, res[theta_ddot]])
 
 model_sim_lnp = sp.lambdify((state_sim, t_sym, parameters, inputs), state_sim_dot, 'numpy')
 model_ctrl_lnp = sp.lambdify((state_ctrl, t_sym, parameters, inputs), state_ctrl_dot, 'numpy')
+model_ctrl_2_lnp = sp.lambdify((state_ctrl_2, t_sym, parameters, inputs), state_ctrl_2_dot, 'numpy')
 
 print(state_sim_dot.__repr__())
 print(state_ctrl_dot.__repr__())
+print(state_ctrl_2_dot.__repr__())
+
+stat_point_ctrl_2 = sp.solve(sp.Matrix(state_ctrl_2_dot))
 
 # %%
 
@@ -43,15 +49,21 @@ import numpy as np
 
 d_model_d_state_sim = sp.lambdify((state_sim, t_sym, parameters, inputs), sp.Matrix(state_sim_dot).jacobian(state_sim), 'sympy')
 d_model_d_state_ctrl = sp.lambdify((state_ctrl, t_sym, parameters, inputs), sp.Matrix(state_ctrl_dot).jacobian(state_ctrl), 'sympy')
+d_model_d_state_ctrl_2 = sp.lambdify((state_ctrl_2, t_sym, parameters, inputs), sp.Matrix(state_ctrl_2_dot).jacobian(state_ctrl_2), 'sympy')
 
 d_model_d_inputs_sim = sp.lambdify((state_sim, t_sym, parameters, inputs), sp.Matrix(state_sim_dot).jacobian(inputs), 'sympy')
 d_model_d_inputs_ctrl = sp.lambdify((state_ctrl, t_sym, parameters, inputs), sp.Matrix(state_ctrl_dot).jacobian(inputs), 'sympy')
+d_model_d_inputs_ctrl_2 = sp.lambdify((state_ctrl_2, t_sym, parameters, inputs), sp.Matrix(state_ctrl_2_dot).jacobian(inputs), 'sympy')
 
 y0 = sp.Array([
     0.0,
     0.0,
     0.0,
     0.0
+])
+
+u0 = sp.Array([
+    F,
 ])
 
 params = parameters
@@ -63,11 +75,20 @@ params = parameters
 #     9.81,
 # ])
 
-A_sim = d_model_d_state_sim(y0, sp.Array([0.0]), params, inputs)
-B_sim = d_model_d_inputs_sim(y0, sp.Array([0.0]), params, inputs)
+t_s = sp.Array([0.0])
 
-A_ctrl = d_model_d_state_ctrl(y0[1:], sp.Array([0.0]), params, inputs)
-B_ctrl = d_model_d_inputs_ctrl(y0[1:], sp.Array([0.0]), params, inputs)
+A_sim = d_model_d_state_sim(y0, t_s, params, u0)
+B_sim = d_model_d_inputs_sim(y0, t_s, params, u0)
+
+A_ctrl = d_model_d_state_ctrl(y0[1:], t_s, params, u0)
+B_ctrl = d_model_d_inputs_ctrl(y0[1:], t_s, params, u0)
+
+
+A_ctrl_2 = d_model_d_state_ctrl_2([0, theta], t_s, params, sp.Array([stat_point_ctrl_2[0][F]]))
+B_ctrl_2 = d_model_d_inputs_ctrl_2([0, theta], t_s, params, sp.Array([stat_point_ctrl_2[0][F]]))
+
+# A_ctrl_2 = d_model_d_state_ctrl_2(y0[1:], t_s, params, u0)
+# B_ctrl_2 = d_model_d_inputs_ctrl_2(y0[1:], t_s, params, u0)
 
 print(A_ctrl.__repr__())
 print(B_ctrl.__repr__())

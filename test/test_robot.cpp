@@ -20,106 +20,12 @@
 
 #include <Json2Eigen.hpp>
 
-#include "bno055_interface.h"
+#include "Imu.h"
 #include "Motor.h"
 #include "Config.h"
 
 #include "Joystick.h"
-
-template <typename T> int sgn(T val) {
-  return (T(0) < val) - (val < T(0));
-}
-
-
-struct State {
-  double x = 0.0;
-  double theta = 0.0;
-  double x_dot = 0.0;
-  double theta_dot = 0.0;
-  double omega = 0.0;
-  bool valid = false;
-};
-
-
-class Controller {
-
- public:
-
-  std::shared_ptr<Config> m_conf;
-
-  double m_f_x = 0.0;
-  double m_f_x_dot = 0.0;
-  double m_f_theta = 0.0;
-  double m_f_theta_dot = 0.0;
-  double m_f_omega = 0.0;
-  double m_f = 0.0;
-
-  double m_x = 0.0;
-
-  Controller(std::shared_ptr<Config> conf)
-  : m_conf(conf) {
-
-  }
-
-  std::vector<double> Step(State state, Joystick& joy) {
-
-    if (m_x == 0.0 || std::abs(joy.m_axes[1]) > 0.05) {
-      m_x = state.x;
-    }
-
-    double theta_k = (*m_conf)["ctrl"]["theta_k"];
-    double theta_dot_k = (*m_conf)["ctrl"]["theta_dot_k"];
-    double x_k = (*m_conf)["ctrl"]["x_k"];
-    double x_dot_k = (*m_conf)["ctrl"]["x_dot_k"];
-    double omega_k = (*m_conf)["ctrl"]["omega_k"];
-    double x_dot_abs_max = (*m_conf)["ctrl"]["x_dot_abs_max"];
-
-    double k_j_omega = (*m_conf)["joy"]["k_j_omega"];
-    double k_j_x_dot = (*m_conf)["joy"]["k_j_x_dot"];
-
-    double wheel_radius = (*m_conf)["model"]["wheel_radius"];
-
-
-    m_f_theta = state.theta * theta_k;
-    m_f_theta_dot = state.theta_dot * theta_dot_k ;
-
-    m_f_x = x_k * (state.x - m_x);
-    m_f_x_dot = x_dot_k * (k_j_x_dot*joy.m_axes[1] - state.x_dot);
-
-    //    axis:  3, value: ROT RIGHT + ROT LEFT -
-
-    m_f_omega = omega_k * (k_j_omega*joy.m_axes[3] - state.omega) / 2.0;
-
-//    std::cout << joy.m_axes[3] << "\t" << state.omega << "\n";
-
-    m_f = m_f_theta + m_f_theta_dot + m_f_x_dot + m_f_x;
-
-    double t = m_f * wheel_radius / 2.0f;
-
-    double t_l = t + m_f_omega;
-    double t_r = t - m_f_omega;
-
-    if (!state.valid) {
-      t_l = 0.0;
-      t_r = 0.0;
-    }
-
-    if (std::abs(state.x_dot) > x_dot_abs_max) {
-      std::cout << "Too fast, exiting ..." << std::endl;
-      exit(1);
-    }
-
-    if (joy.m_buttons[6]) {
-      std::cout << "Stop requested, exiting ..." << std::endl;
-      exit(0);
-    }
-
-//    std::cout << "f_theta: " << f_theta << " f_x_dot: " << f_x_dot << " f: " << f << "\n";
-
-    return {t_l, t_r};
-  }
-};
-
+#include "Controller.h"
 
 class Vehicle : public boost::asio::io_service {
  private:
@@ -127,7 +33,7 @@ class Vehicle : public boost::asio::io_service {
   State m_state;
   Controller m_ctrl;
 
-  BNO055 m_imu;
+  Imu m_imu;
   Joystick m_joy;
 
   std::shared_ptr<Config> m_conf;
@@ -179,23 +85,8 @@ class Vehicle : public boost::asio::io_service {
       exit(-1);
     }
 
-
-    // Update state
-
-    auto velocity_l = 2 * M_PI * 0.035 * (m_motors[0].m_state.velocity + m_imu.m_state.theta_dot/(2 * M_PI));
-    auto velocity_r = 2 * M_PI * 0.035 * (m_motors[1].m_state.velocity + m_imu.m_state.theta_dot/(2 * M_PI));
-
-    double wheel_base = (*m_conf)["model"]["wheel_base"];
-
-    m_state.x = (m_motors[0].m_state.position + m_motors[1].m_state.position)/2.0;
-    m_state.theta = m_imu.m_state.theta;
-    m_state.x_dot = (velocity_r + velocity_l) / 2.0;
-    m_state.theta_dot = m_imu.m_state.theta_dot;
-    m_state.omega = (velocity_r - velocity_l) / wheel_base;
-
-    m_state.valid = m_imu.m_state.valid;
-
-    auto torque = m_ctrl.Step(m_state, m_joy);
+    auto state_dbg = m_state.Update(m_motors, m_imu);
+    auto[torque, ctrl_debug] = m_ctrl.Step(m_state, m_joy);
 
     for (int n = 0; n < m_motors.size(); n++) {
       auto[ctrl_buffer, ctrl_handler] = m_motors[n].BuildTorqueBuffer(torque[n]);
@@ -209,44 +100,10 @@ class Vehicle : public boost::asio::io_service {
 
     // Log some data ...
 
-//    std::cout << "mode0: " << int(m_motors[0].m_state.mode) << " mode1: " << int(m_motors[1].m_state.mode) << std::endl;
-
     nlohmann::json json;
-
     json["timestamp"] = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
-
-    json["x"] = m_state.x;
-    json["theta"] = m_imu.m_state.theta;
-    json["x_dot"] = m_state.x_dot;
-    json["theta_dot"] = m_imu.m_state.theta_dot;
-    json["omega"] = m_state.omega;
-
-    json["m_f_theta"] = m_ctrl.m_f_theta;
-    json["m_f_theta_dot"] = m_ctrl.m_f_theta_dot;
-    json["m_f_x"] = m_ctrl.m_f_x;
-    json["m_f_x_dot"] = m_ctrl.m_f_x_dot;
-    json["m_f_omega"] = m_ctrl.m_f_omega;
-    json["m_f"] = m_ctrl.m_f;
-
-    json["torque0"] = torque[0];
-    json["torque1"] = torque[1];
-
-//
-//    json["raw_theta"] = m_imu.m_state_raw.theta;
-//    json["raw_theta_dot"] = m_imu.m_state_raw.theta_dot;
-//    json["raw_omega"] = m_imu.m_state_raw.omega;
-
-    json["velocity_l"] = velocity_l;
-    json["velocity_r"] = velocity_r;
-
-    json["velocity_raw_l"] = m_motors[0].m_state.velocity;
-    json["velocity_raw_r"] = m_motors[1].m_state.velocity;
-
-    json["position_l"] = m_motors[0].m_state.position;
-    json["position_r"] = m_motors[1].m_state.position;
-
-    json["mode_l"] = m_motors[0].m_state.mode;
-    json["mode_r"] = m_motors[1].m_state.mode;
+    json["ctrl"] = ctrl_debug;
+    json["state"] = state_dbg;
 
     post(m_file_io_strand.wrap([json](){
       const auto msgpack = nlohmann::json::to_msgpack(json);
@@ -304,7 +161,7 @@ class Vehicle : public boost::asio::io_service {
 
  public:
   Vehicle(std::shared_ptr<Config> conf)
-      : m_joy(*this), m_ctrl(conf), m_conf(conf), m_stream(*this), m_signals(*this, SIGINT), m_d_timer(*this, boost::posix_time::seconds(50)),
+      : m_state(conf), m_joy(*this), m_ctrl(conf), m_conf(conf), m_stream(*this), m_signals(*this, SIGINT), m_d_timer(*this, boost::posix_time::seconds(50)),
         m_file_io_strand(*this) {
 
     SetupCan();
