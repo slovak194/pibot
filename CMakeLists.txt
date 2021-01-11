@@ -5,11 +5,6 @@ set(CMAKE_CXX_STANDARD 20)
 
 SET(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -Wno-psabi")
 
-
-#set(CMAKE_PREFIX_PATH "/usr/lib/cmake")
-
-#message(DEBUG ${CMAKE_PREFIX_PATH})
-
 find_package(Eigen3 REQUIRED NO_MODULE)
 find_package(Boost REQUIRED COMPONENTS system chrono regex)
 find_package(nlohmann_json REQUIRED)
