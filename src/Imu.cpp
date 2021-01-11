@@ -102,11 +102,20 @@ double Imu::GetGyroY() {
 }
 
 
+bno055_accel_t Imu::GetAx() {
+  bno055_accel_t acc;
+  auto result = bno055_read_accel_xyz(&acc);
+  return acc;
+
+}
+
+
 void Imu::Update() {
   std::uint64_t now = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
   auto euler = GetEuler();
   auto theta = euler.r; // TODO, OLSLO, check this!!!
   auto theta_dot = GetGyroY();
+//  auto acc = GetAx();
 
 //  double omega;
 //  auto result = bno055_convert_double_gyro_z_dps(&omega);
@@ -120,6 +129,7 @@ void Imu::Update() {
       m_state.theta_dot = theta_dot;
       m_state.valid = true;
 //      m_state.omega = omega;
+//      m_acc = acc;
     }
   } else {
 
@@ -132,6 +142,7 @@ void Imu::Update() {
       m_state.theta = theta;
       m_state.theta_dot = theta_dot;
 //      m_state.omega = omega;
+//      m_acc = acc;
     }
   }
 

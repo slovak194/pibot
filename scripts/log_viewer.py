@@ -114,53 +114,28 @@ f, axs = plot_df_entry(dump, [
 
 # %%
 
-
 dump = load_dataset("/home/slovak/pibot/build/dump.msg")
 dump.keys()
 dump.timestamp = (dump.timestamp - dump.timestamp[0])*1e-6
 
 
-f, axs = plot_df_entry(None, [
-    [],
-    [],
-    [],
-    [],
+f, axs = plot_df_entry(dump, [
+    ["ctrl.m_f_theta", "ctrl.m_f_ff", "ctrl.m_f_theta_dot", "ctrl.m_f_x_dot"],
+    ["ctrl.m_f_omega"],
+    ["ctrl.m_f"],
 ], wrt_iloc=True, fig=1, tight=False)
 
-n = -1
-
-n += 1
-ax = axs[n]
-ax.plot(dump.timestamp, dump.m_f_theta, '.-', label="m_f_theta")
-ax.plot(dump.timestamp, dump.m_f_theta_dot, '.-', label="m_f_theta_dot")
-xl = ax.legend()
-
-n += 1
-ax = axs[n]
-ax.plot(dump.timestamp, dump.m_f_x, '.-', label="m_f_x")
-ax.plot(dump.timestamp, dump.m_f_x_dot, '.-', label="m_f_x_dot")
-ax.plot(dump.timestamp, dump.m_f_x + dump.m_f_x_dot, '.-', label="dump.m_f_x + dump.m_f_x_dot")
-xl = ax.legend()
+# %%
 
 
+f, axs = plot_df_entry(dump, [
+    ["ctrl.m_f_theta_dot", "state.theta_dot"],
+], wrt_iloc=True, fig=1, tight=False)
 
-n += 1
-ax = axs[n]
-ax.plot(dump.timestamp, dump.torque0, '.-', label="torque0")
-ax.plot(dump.timestamp, dump.torque1, '.-', label="torque1")
-xl = ax.legend()
 
-n += 1
-ax = axs[n]
-ax.plot(dump.timestamp, dump.m_f_omega, '.-', label="m_f_omega")
-# ax.plot(dump.timestamp, dump.mode_r, '.-', label="mode_r")
-# ax.plot(dump.timestamp, dump.mode_r, '.-', label="mode_r")
-# ax.plot(dump.timestamp, dump.position0, '.-', label="position0")
-# ax.plot(dump.timestamp, dump.position1, '.-', label="position1")
-xl = ax.legend()
-#
-#
-# # plt.plot(np.diff(dump.timestamp), '.')
+# %% Time
+
+plt.plot(np.diff(dump.timestamp), '.')
 
 
 # %%
@@ -200,3 +175,40 @@ xl = ax.legend()
 # n += 1
 # ax = axs[n]
 # xl = ax.legend()
+
+
+# %% IMU
+
+
+dump = load_dataset("/home/slovak/pibot/build/imu_dump.msg")
+dump.keys()
+dump.timestamp = (dump.timestamp - dump.timestamp[0])*1e-6
+
+f, axs = plot_df_entry(dump, [
+    ["x", "y", "z"],
+    ["theta"]
+], wrt_iloc=True, fig=1, tight=False)
+
+theta2 = np.arctan(dump.x/dump.z)
+
+axs[1].plot(-theta2)
+
+# %%
+# plt.plot(dump.x, dump.z, '.')
+#
+# plt.gca().set_xlim([-1000, 1000])
+# plt.gca().set_ylim([-1000, 1000])
+
+# %%
+
+dump = load_dataset("/home/slovak/pibot/build/dump.msg")
+dump.keys()
+dump.timestamp = (dump.timestamp - dump.timestamp[0])*1e-6
+
+f, axs = plot_df_entry(dump, [
+    ["state.acc_x", "state.acc_y", "state.acc_z"],
+    ["state.theta"]
+], wrt_iloc=True, fig=1, tight=False)
+
+theta2 = np.arctan(dump["state.acc_x"]/dump["state.acc_z"])
+axs[1].plot(-theta2)

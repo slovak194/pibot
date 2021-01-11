@@ -11,7 +11,7 @@ link_libraries(
         nlohmann_json::nlohmann_json
 )
 
-add_executable(test_bno55 test_bno55.cpp)
+add_executable(test_imu test_imu.cpp ../src/Imu.cpp)
 
 add_executable(test_asio_can test_asio_can.cpp)
 
@@ -29,4 +29,3 @@ add_executable(test_robot
 target_compile_definitions(test_robot PUBLIC PROJECT_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
 
 add_executable(test_joystick_asio test_joystick_asio.cpp)
-

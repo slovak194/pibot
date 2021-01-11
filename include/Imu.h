@@ -21,11 +21,14 @@ class Imu {
     bool valid = false;
   };
 
+//  bno055_accel_t m_acc = {0};
+
   state_t m_state = {0};
   state_t m_state_raw = {0};
 
   bno055_euler_double_t GetEuler();
   double GetGyroY();
+  bno055_accel_t GetAx();
   void Update();
 
  private:

@@ -62,6 +62,10 @@ struct State {
     state_dbg["omega"] = omega;
     state_dbg["valid"] = valid;
 
+//    state_dbg["acc_x"] = imu.m_acc.x;
+//    state_dbg["acc_y"] = imu.m_acc.y;
+//    state_dbg["acc_z"] = imu.m_acc.z;
+
     return state_dbg;
 
   }
