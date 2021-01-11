@@ -62,6 +62,10 @@ std::pair<std::vector<double>, nlohmann::json> Controller::Step(State state, Joy
     t_r = 0.0;
   }
 
+  t_l = 0.0;
+  t_r = 0.0;
+
+
   if (std::abs(x_dot) > x_dot_abs_max) {
     std::cout << "Too fast, exiting ..." << std::endl;
     exit(1);

@@ -10,7 +10,9 @@
 
 #include <nlohmann/json.hpp>
 
-#include "Config.h"
+//#include "Config.h"
+
+#include "../submoudles/remote-config/include/remote_config/Server.h"
 #include "Joystick.h"
 #include "Motor.h"
 #include "Imu.h"
@@ -24,7 +26,7 @@ template <typename T> int sgn(T val) {
 
 struct State {
 
-  std::shared_ptr<Config> m_conf;
+  std::shared_ptr<remote_config::Server> m_conf;
 
   double x = 0.0;
   double theta = 0.0;
@@ -33,13 +35,13 @@ struct State {
   double omega = 0.0;
   bool valid = false;
 
-  State(std::shared_ptr<Config> conf)
+  State(std::shared_ptr<remote_config::Server> conf)
   : m_conf(conf) {}
 
   nlohmann::json Update(std::vector<Motor> &motors, Imu &imu) {
 
-    double wheel_base = (*m_conf)["model"]["wheel_base"];
-    double wheel_radius = (*m_conf)["model"]["wheel_radius"];
+    double wheel_base = (*m_conf)("model/wheel_base");
+    double wheel_radius = (*m_conf)("model/wheel_radius");
 
     auto velocity_l = 2.0 * M_PI * wheel_radius * (motors[0].m_state.velocity + imu.m_state.theta_dot/(2.0 * M_PI));
     auto velocity_r = 2.0 * M_PI * wheel_radius * (motors[1].m_state.velocity + imu.m_state.theta_dot/(2.0 * M_PI));
@@ -77,7 +79,7 @@ class Controller {
 
  public:
 
-  std::shared_ptr<Config> m_conf;
+  std::shared_ptr<remote_config::Server> m_conf;
 
   double m_f_x = 0.0;
   double m_f_x_dot = 0.0;
@@ -89,7 +91,7 @@ class Controller {
 
   double m_x = 0.0;
 
-  Controller(std::shared_ptr<Config> conf)
+  Controller(std::shared_ptr<remote_config::Server> conf)
       : m_conf(conf) {
 
   }

@@ -1,0 +1,3 @@
+[submodule "submoudles/remote-config"]
+	path = submoudles/remote-config
+	url = git@github.com:slovak194/remote-config.git

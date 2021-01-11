@@ -22,7 +22,8 @@
 
 #include "Imu.h"
 #include "Motor.h"
-#include "Config.h"
+//#include "Config.h"
+#include "../submoudles/remote-config/include/remote_config/Server.h"
 
 #include "Joystick.h"
 #include "Controller.h"
@@ -36,7 +37,7 @@ class Vehicle : public boost::asio::io_service {
   Imu m_imu;
   Joystick m_joy;
 
-  std::shared_ptr<Config> m_conf;
+  std::shared_ptr<remote_config::Server> m_conf;
 
   struct sockaddr_can m_can_address;
   struct ifreq ifr;
@@ -160,8 +161,8 @@ class Vehicle : public boost::asio::io_service {
   }
 
  public:
-  Vehicle(std::shared_ptr<Config> conf)
-      : m_state(conf), m_joy(*this), m_ctrl(conf), m_conf(conf), m_stream(*this), m_signals(*this, SIGINT), m_d_timer(*this, boost::posix_time::seconds(50)),
+  Vehicle()
+      : m_conf(std::make_shared<remote_config::Server>(*this)), m_state(m_conf), m_joy(*this), m_ctrl(m_conf), m_stream(*this), m_signals(*this, SIGINT), m_d_timer(*this, boost::posix_time::seconds(50)),
         m_file_io_strand(*this) {
 
     SetupCan();
@@ -175,9 +176,10 @@ class Vehicle : public boost::asio::io_service {
 
 int main(int argc, char *argv[]) {
 
-  auto conf = std::make_shared<Config>();
+//  auto conf = std::make_shared<Config>();
 
-  std::string dump_file_path = (*conf)["dump_base_path"].get<std::string>() + "dump.msg";
+  const std::string dump_base_path = std::string(PROJECT_SOURCE_DIR) + "/build/";
+  std::string dump_file_path = dump_base_path + "dump.msg";
 
   if (std::remove(dump_file_path.c_str())) {
     std::cout << "Cannot remove dump.msg!" << std::endl;
@@ -185,7 +187,7 @@ int main(int argc, char *argv[]) {
     std::cout << "dump.msg has been removed." << std::endl;
   }
 
-  Vehicle veh(conf);
+  Vehicle veh;
   veh.run();
 
   return 0;
