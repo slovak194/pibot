@@ -8,10 +8,12 @@ SET(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -Wno-psabi")
 find_package(Eigen3 REQUIRED NO_MODULE)
 find_package(Boost REQUIRED COMPONENTS system chrono regex)
 find_package(nlohmann_json REQUIRED)
+find_package(yaml-cpp REQUIRED)
 
 include_directories(
         include
         ${EIGEN3_INCLUDE_DIRS}
+        ${YAML_CPP_INCLUDE_DIR}
 )
 
 add_subdirectory(test)

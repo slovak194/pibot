@@ -7,6 +7,7 @@ include_directories(
 link_libraries(
         bno055
         ${Boost_LIBRARIES}
+        ${YAML_CPP_LIBRARIES}
         pthread
         nlohmann_json::nlohmann_json
         zmq
