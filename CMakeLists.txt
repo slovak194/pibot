@@ -9,7 +9,7 @@ set(CMAKE_CXX_STANDARD 20)
 #message(DEBUG ${CMAKE_PREFIX_PATH})
 
 find_package(Eigen3 REQUIRED NO_MODULE)
-find_package(Boost REQUIRED COMPONENTS system chrono)
+find_package(Boost REQUIRED COMPONENTS system chrono regex)
 find_package(nlohmann_json REQUIRED)
 
 include_directories(

@@ -28,8 +28,10 @@
 #include "Joystick.h"
 #include "Controller.h"
 
-class Vehicle : public boost::asio::io_service {
+class Vehicle {
  private:
+
+  asio::io_service &m_ios;
 
   State m_state;
   Controller m_ctrl;
@@ -52,10 +54,22 @@ class Vehicle : public boost::asio::io_service {
 
   canfd_frame m_receive_frame;
 
-  void SetSigintHandler() {
+  void SetSigHandler() {
     m_signals.async_wait([this](const boost::system::error_code &error, int signal_number) {
-      std::cout << "Exiting ..." << std::endl;
-      this->stop();
+
+      if (!error){
+        if (signal_number == SIGINT) {
+          std::cout << "On Signal: " << signal_number << " exiting ..." << std::endl;
+          this->m_ios.stop();
+        }
+
+        if (signal_number == SIGUSR1) {
+//          sudo kill -s SIGUSR1 $(sudo pidof test_robot)
+          std::cout << "On Signal: " << signal_number << " reloading config ..." << std::endl;
+          this->m_conf->Load();
+          this->SetSigHandler();
+        }
+      }
     });
 
   }
@@ -161,12 +175,12 @@ class Vehicle : public boost::asio::io_service {
   }
 
  public:
-  Vehicle()
-      : m_conf(std::make_shared<remote_config::Server>(*this)), m_state(m_conf), m_joy(*this), m_ctrl(m_conf), m_stream(*this), m_signals(*this, SIGINT), m_d_timer(*this, boost::posix_time::seconds(50)),
-        m_file_io_strand(*this) {
+  Vehicle(asio::io_service &ios, std::shared_ptr<remote_config::Server> conf)
+      : m_ios(ios), m_conf(conf), m_state(conf), m_joy(ios), m_ctrl(conf), m_stream(ios), m_signals(ios, SIGINT, SIGUSR1), m_d_timer(ios, boost::posix_time::seconds(50)),
+        m_file_io_strand(ios) {
 
     SetupCan();
-    SetSigintHandler();
+    SetSigHandler();
     ScheduleCanReceive();
     SetStopAll();
     ScheduleBnoReceiveTimed();
@@ -175,8 +189,6 @@ class Vehicle : public boost::asio::io_service {
 };
 
 int main(int argc, char *argv[]) {
-
-//  auto conf = std::make_shared<Config>();
 
   const std::string dump_base_path = std::string(PROJECT_SOURCE_DIR) + "/build/";
   std::string dump_file_path = dump_base_path + "dump.msg";
@@ -187,8 +199,12 @@ int main(int argc, char *argv[]) {
     std::cout << "dump.msg has been removed." << std::endl;
   }
 
-  Vehicle veh;
-  veh.run();
+  asio::io_service ios;
+
+  auto conf = std::make_shared<remote_config::Server>(ios, std::string(PROJECT_SOURCE_DIR) + "/config/conf.yaml", "tcp://*:5555");
+
+  Vehicle veh(ios, conf);
+  ios.run();
 
   return 0;
 

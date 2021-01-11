@@ -40,8 +40,8 @@ struct State {
 
   nlohmann::json Update(std::vector<Motor> &motors, Imu &imu) {
 
-    double wheel_base = (*m_conf)("model/wheel_base");
-    double wheel_radius = (*m_conf)("model/wheel_radius");
+    auto wheel_base = m_conf->get<double>("/model/wheel_base");
+    auto wheel_radius = m_conf->get<double>("/model/wheel_radius");
 
     auto velocity_l = 2.0 * M_PI * wheel_radius * (motors[0].m_state.velocity + imu.m_state.theta_dot/(2.0 * M_PI));
     auto velocity_r = 2.0 * M_PI * wheel_radius * (motors[1].m_state.velocity + imu.m_state.theta_dot/(2.0 * M_PI));

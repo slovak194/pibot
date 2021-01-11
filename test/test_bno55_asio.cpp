@@ -14,7 +14,7 @@ using namespace boost;
 class BnoService : public asio::io_service {
  private:
 
-  BNO055 m_bno_interface;
+  Imu m_bno_interface;
 
   void schedule_receive() {
     post([this](){this->receive();});

@@ -10,21 +10,23 @@ std::pair<std::vector<double>, nlohmann::json> Controller::Step(State state, Joy
     m_x = state.x;
   }
 
-  double theta_k = (*m_conf)["ctrl"]["theta_k"];
-  double theta_dot_k = (*m_conf)["ctrl"]["theta_dot_k"];
-  double x_k = (*m_conf)["ctrl"]["x_k"];
-  double x_dot_k = (*m_conf)["ctrl"]["x_dot_k"];
-  double omega_k = (*m_conf)["ctrl"]["omega_k"];
-  double x_dot_abs_max = (*m_conf)["ctrl"]["x_dot_abs_max"];
 
-  double k_j_omega = (*m_conf)["joy"]["k_j_omega"];
-  double k_j_x_dot = (*m_conf)["joy"]["k_j_x_dot"];
 
-  double wheel_radius = (*m_conf)["model"]["wheel_radius"];
+  auto theta_k = m_conf->get<double>("/ctrl/theta_k");
+  auto theta_dot_k = m_conf->get<double>("/ctrl/theta_dot_k");
+  auto x_k = m_conf->get<double>("/ctrl/x_k");
+  auto x_dot_k = m_conf->get<double>("/ctrl/x_dot_k");
+  auto omega_k = m_conf->get<double>("/ctrl/omega_k");
+  auto x_dot_abs_max = m_conf->get<double>("/ctrl/x_dot_abs_max");
 
-  double m_p = (*m_conf)["model"]["m_p"];
-  double m_c = (*m_conf)["model"]["m_c"];
-  double g = (*m_conf)["model"]["g"];
+  auto k_j_omega = m_conf->get<double>("/joy/k_j_omega");
+  auto k_j_x_dot = m_conf->get<double>("/joy/k_j_x_dot");
+
+  auto wheel_radius = m_conf->get<double>("/model/wheel_radius");
+
+  auto m_p = m_conf->get<double>("/model/m_p");
+  auto m_c = m_conf->get<double>("/model/m_c");
+  auto g = m_conf->get<double>("/model/g");
 
   double theta = state.theta;
   double theta_dot = state.theta_dot;
@@ -62,8 +64,8 @@ std::pair<std::vector<double>, nlohmann::json> Controller::Step(State state, Joy
     t_r = 0.0;
   }
 
-  t_l = 0.0;
-  t_r = 0.0;
+  t_l = 0.0; // TODO, OLSLO, remove this
+  t_r = 0.0; // TODO, OLSLO, remove this
 
 
   if (std::abs(x_dot) > x_dot_abs_max) {
