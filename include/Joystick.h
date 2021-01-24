@@ -97,6 +97,7 @@ class Joystick {
             value = value / static_cast<double>(MAX_AXES_VALUE);
           }
 
+          m_axes_prev[jse->number] = m_axes[jse->number];
           m_axes[jse->number] = value;
 
 //          std::cout << "  axis: ";
@@ -126,6 +127,7 @@ class Joystick {
   std::array<std::uint32_t, 11> m_buttons_time = {0U};
   std::array<bool, 11> m_buttons_active = {false};
   std::array<double, 8> m_axes = {0.0};
+  std::array<double, 8> m_axes_prev = {0.0};
   std::array<std::uint32_t, 8> m_axes_time = {0U};
   std::array<bool, 8> m_axes_active = {false};
 

@@ -91,12 +91,14 @@ class Controller {
 
   double m_x = 0.0;
 
+  double m_x_dot_ref = 0.0;
+
   Controller(std::shared_ptr<remote_config::Server> conf)
       : m_conf(conf) {
 
   }
 
-  std::pair<std::vector<double>, nlohmann::json> Step(State state, Joystick& joy);
+  std::pair<std::vector<double>, nlohmann::json> Step(State state, Joystick& joy, double dt_ms);
 
 };
 

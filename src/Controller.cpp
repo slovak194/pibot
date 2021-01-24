@@ -4,9 +4,9 @@
 
 #include "Controller.h"
 
-std::pair<std::vector<double>, nlohmann::json> Controller::Step(State state, Joystick& joy) {
+std::pair<std::vector<double>, nlohmann::json> Controller::Step(State state, Joystick& joy, double dt_ms) {
 
-  if (m_x == 0.0 || std::abs(joy.m_axes[1]) > 0.05) {
+  if (m_x == 0.0 || std::abs(joy.m_axes[1]) > 0.1 || std::abs(state.x_dot) > 0.5) {
     m_x = state.x;
   }
 
@@ -18,6 +18,7 @@ std::pair<std::vector<double>, nlohmann::json> Controller::Step(State state, Joy
   auto x_dot_k = m_conf->get<double>("/ctrl/x_dot_k");
   auto omega_k = m_conf->get<double>("/ctrl/omega_k");
   auto x_dot_abs_max = m_conf->get<double>("/ctrl/x_dot_abs_max");
+  auto x_ddot_max = m_conf->get<double>("/ctrl/x_ddot_max");
 
   auto k_j_omega = m_conf->get<double>("/joy/k_j_omega");
   auto k_j_x_dot = m_conf->get<double>("/joy/k_j_x_dot");
@@ -35,14 +36,28 @@ std::pair<std::vector<double>, nlohmann::json> Controller::Step(State state, Joy
   double omega = state.omega;
 
   double x_dot_ref = k_j_x_dot*joy.m_axes[1];
+//
+
+  double x_ddot_ref = (x_dot_ref - m_x_dot_ref)/(dt_ms*1e-3);
+
+  if (std::abs(x_ddot_ref) < x_ddot_max) {
+    m_x_dot_ref = x_dot_ref;
+  } else {
+    m_x_dot_ref = m_x_dot_ref + sgn(x_ddot_ref) * x_ddot_max * dt_ms*1e-3;
+  }
+
+  x_dot_ref = m_x_dot_ref;
+
+
 //  double omega_ref = k_j_omega*joy.m_axes[0] * sgn(x_dot_ref);
     double omega_ref = k_j_omega*joy.m_axes[3];
 
-  m_f_theta = theta * theta_k;
-  m_f_theta_dot = theta_dot * theta_dot_k;
+//  m_f_x = x_k * (x - m_x);
 
-  m_f_x = x_k * (x - m_x);
-  m_f_x_dot = x_dot_k * (x_dot_ref - x_dot);
+  double theta_ref = m_conf->get<double>("/ctrl/theta_theta_dot_k") * (x_dot_ref - x_dot) - x_k * (x - m_x);
+
+  m_f_theta = theta_k * (theta_ref - theta);
+  m_f_theta_dot = theta_dot * theta_dot_k;
 
   //    axis:  3, value: ROT RIGHT + ROT LEFT -
 
@@ -50,9 +65,7 @@ std::pair<std::vector<double>, nlohmann::json> Controller::Step(State state, Joy
 
   m_f_ff = g*(m_c + m_p)*std::tan(theta);
 
-//    std::cout << joy.m_axes[3] << "\t" << state.omega << "\n";
-
-  m_f = m_f_theta + m_f_theta_dot + m_f_x_dot + m_f_x + m_f_ff;
+  m_f = m_f_theta + m_f_theta_dot + m_f_x_dot + m_f_ff;
 
   double t = m_f * wheel_radius / 2.0f;
 
@@ -64,9 +77,8 @@ std::pair<std::vector<double>, nlohmann::json> Controller::Step(State state, Joy
     t_r = 0.0;
   }
 
-  t_l = 0.0; // TODO, OLSLO, remove this
-  t_r = 0.0; // TODO, OLSLO, remove this
-
+//  t_l = 0.0; // TODO, OLSLO, remove this
+//  t_r = 0.0; // TODO, OLSLO, remove this
 
   if (std::abs(x_dot) > x_dot_abs_max) {
     std::cout << "Too fast, exiting ..." << std::endl;
@@ -80,9 +92,12 @@ std::pair<std::vector<double>, nlohmann::json> Controller::Step(State state, Joy
 
   nlohmann::json ctrl_debug;
 
+  ctrl_debug["theta_ref"] = theta_ref;
   ctrl_debug["m_f_theta"] = m_f_theta;
   ctrl_debug["m_f_theta_dot"] = m_f_theta_dot;
   ctrl_debug["m_f_x"] = m_f_x;
+  ctrl_debug["x_m_x"] = x - m_x;
+  ctrl_debug["x_dot_ref"] = x_dot_ref;
   ctrl_debug["m_f_x_dot"] = m_f_x_dot;
   ctrl_debug["m_f_omega"] = m_f_omega;
   ctrl_debug["m_f_ff"] = m_f_ff;
@@ -90,8 +105,6 @@ std::pair<std::vector<double>, nlohmann::json> Controller::Step(State state, Joy
 
   ctrl_debug["t_l"] = t_l;
   ctrl_debug["t_r"] = t_r;
-
-//    std::cout << "f_theta: " << f_theta << " f_x_dot: " << f_x_dot << " f: " << f << "\n";
 
   return {{t_l, t_r}, ctrl_debug};
 }

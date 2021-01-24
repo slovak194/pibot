@@ -95,13 +95,16 @@ class Vehicle {
     m_imu.Update();
     auto t1 = std::chrono::steady_clock::now();
 //    std::cout << "bno update: " << std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0).count() << "\n";
-    if (std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0).count() > 15) {
+
+    double dt_ms = std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0).count();
+
+    if (dt_ms > 15) {
       std::cout << "loop time > 15ms, exiting ... " << std::endl;
       exit(-1);
     }
 
     auto state_dbg = m_state.Update(m_motors, m_imu);
-    auto[torque, ctrl_debug] = m_ctrl.Step(m_state, m_joy);
+    auto[torque, ctrl_debug] = m_ctrl.Step(m_state, m_joy, dt_ms);
 
     for (int n = 0; n < m_motors.size(); n++) {
       auto[ctrl_buffer, ctrl_handler] = m_motors[n].BuildTorqueBuffer(torque[n]);
