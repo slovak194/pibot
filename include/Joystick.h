@@ -101,6 +101,10 @@ class Joystick {
           m_axes[jse->number] = value;
 
 //          std::cout << "  axis: ";
+
+//          std::cout << std::setw(2) << static_cast<int>(jse->number) << ", value: " << jse->value
+//                    << std::endl;
+
           break;
       }
 
